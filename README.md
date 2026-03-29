@@ -4,7 +4,7 @@
 
 ## 工具列表
 
-- [加密](./加密APP.html) - AES/Base64/凯撒/复合加密
+- [加密](./加密.html) - AES/Base64/凯撒/复合加密
 - [MIDI合成器](./midi格式转换.html) - 三频段多峰值，专为整活设计
 - [JS混淆器](./js压缩混淆.html) - 压缩+混淆，局部变量重命名
 - [Brainfuck编辑器](./Breakfuckb编辑器.html) - 学完语法即可放弃
