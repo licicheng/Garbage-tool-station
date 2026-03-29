@@ -1,0 +1,997 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Breakfuck 编辑器</title>
+    <style>
+        /* 保持原有样式不变 */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #1a2a6c, #b21f1f, #fdbb2d);
+            color: #fff;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background-color: rgba(0, 0, 0, 0.7);
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #fdbb2d;
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+        
+        .subtitle {
+            font-size: 1.2rem;
+            color: #fdbb2d;
+            margin-bottom: 20px;
+        }
+        
+        .main-content {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        @media (max-width: 1024px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .panel {
+            background-color: rgba(30, 30, 40, 0.8);
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+        }
+        
+        .panel h2 {
+            color: #fdbb2d;
+            margin-bottom: 15px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #444;
+        }
+        
+        .editor-container {
+            position: relative;
+            height: 400px;
+            margin-bottom: 15px;
+        }
+        
+        #editor {
+            width: 100%;
+            height: 100%;
+            background-color: #1e1e1e;
+            color: #d4d4d4;
+            border: 1px solid #444;
+            border-radius: 5px;
+            padding: 10px 10px 10px 50px;
+            font-family: 'Courier New', monospace;
+            font-size: 16px;
+            resize: none;
+            tab-size: 4;
+            line-height: 1.5;
+        }
+        
+        .line-numbers {
+            position: absolute;
+            left: 0;
+            top: 0;
+            height: 100%;
+            width: 40px;
+            background-color: #252526;
+            border-right: 1px solid #444;
+            padding: 10px 5px;
+            text-align: right;
+            color: #858585;
+            font-family: 'Courier New', monospace;
+            font-size: 16px;
+            line-height: 1.5;
+            overflow: hidden;
+            pointer-events: none;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin: 15px 0;
+            flex-wrap: wrap;
+        }
+        
+        button {
+            background: linear-gradient(to right, #fdbb2d, #b21f1f);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            flex: 1;
+            min-width: 120px;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        button:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .file-controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .file-controls button {
+            background: linear-gradient(to right, #1a2a6c, #4a54bc);
+        }
+        
+        .memory-container {
+            margin-top: 20px;
+        }
+        
+        .memory-grid {
+            display: grid;
+            grid-template-columns: repeat(10, 1fr);
+            gap: 5px;
+            margin-top: 10px;
+        }
+        
+        .memory-cell {
+            background-color: #2a2a3a;
+            border: 1px solid #444;
+            border-radius: 3px;
+            padding: 8px 5px;
+            text-align: center;
+            font-size: 14px;
+            transition: all 0.2s ease;
+        }
+        
+        .memory-cell.active {
+            background-color: #fdbb2d;
+            color: #000;
+            font-weight: bold;
+            transform: scale(1.1);
+        }
+        
+        .memory-cell.changed {
+            animation: flash 0.5s;
+        }
+        
+        @keyframes flash {
+            0% { background-color: #fdbb2d; }
+            50% { background-color: #4CAF50; }
+            100% { background-color: #fdbb2d; }
+        }
+        
+        .memory-cell.breakpoint {
+            border: 2px solid #b21f1f;
+        }
+        
+        .output-container {
+            margin-top: 20px;
+        }
+        
+        #output {
+            background-color: #1e1e1e;
+            color: #d4d4d4;
+            border: 1px solid #444;
+            border-radius: 5px;
+            padding: 10px;
+            min-height: 100px;
+            font-family: 'Courier New', monospace;
+            white-space: pre-wrap;
+            overflow-y: auto;
+            max-height: 200px;
+        }
+        
+        .instructions {
+            margin-top: 30px;
+            background-color: rgba(30, 30, 40, 0.8);
+            border-radius: 8px;
+            padding: 15px;
+        }
+        
+        .instructions h2 {
+            color: #fdbb2d;
+            margin-bottom: 15px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #444;
+        }
+        
+        .instruction-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        
+        .instruction-table th, .instruction-table td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #444;
+        }
+        
+        .instruction-table th {
+            background-color: rgba(253, 187, 45, 0.2);
+            color: #fdbb2d;
+        }
+        
+        .instruction-table tr:hover {
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+        
+        .status {
+            margin-top: 15px;
+            padding: 10px;
+            background-color: rgba(30, 30, 40, 0.8);
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .highlight {
+            color: #fdbb2d;
+            font-weight: bold;
+        }
+        
+        .error {
+            color: #ff5555;
+            font-weight: bold;
+        }
+        
+        .success {
+            color: #55ff55;
+            font-weight: bold;
+        }
+        
+        .file-input {
+            display: none;
+        }
+        
+        .examples {
+            margin-top: 20px;
+        }
+        
+        .examples select {
+            width: 100%;
+            padding: 8px;
+            background-color: #2a2a3a;
+            color: white;
+            border: 1px solid #444;
+            border-radius: 5px;
+            margin-bottom: 10px;
+        }
+
+        #editor:focus {
+            outline: 2px solid #fdbb2d;
+            border-color: transparent;
+        }
+
+        .command-highlight {
+            position: absolute;
+            background-color: rgba(253, 187, 45, 0.2);
+            pointer-events: none;
+            transition: left 0.1s, width 0.1s;
+        }
+        
+        /* 新增：延迟控制区域 */
+        .delay-control {
+            margin: 15px 0;
+            padding: 10px;
+            background-color: rgba(30, 30, 40, 0.5);
+            border-radius: 5px;
+        }
+        
+        .delay-control label {
+            display: block;
+            margin-bottom: 5px;
+            color: #fdbb2d;
+        }
+        
+        .delay-control input {
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Breakfuck 编辑器</h1>
+            <p class="subtitle">带有延迟执行系统的Brainfuck增强版本</p>
+        </header>
+        
+        <div class="main-content">
+            <div class="panel">
+                <h2>代码编辑器</h2>
+                <div class="editor-container">
+                    <div class="line-numbers" id="line-numbers"></div>
+                    <div class="command-highlight" id="command-highlight"></div>
+                    <textarea id="editor" placeholder="在这里输入Breakfuck代码..." spellcheck="false">>>>>>>>[]+<<<</textarea>
+                </div>
+                
+                <div class="delay-control">
+                    <label for="execution-delay">执行延迟 (毫秒): <span id="delay-value">100</span></label>
+                    <input type="range" id="execution-delay" min="50" max="1000" value="100">
+                </div>
+                
+                <div class="controls">
+                    <button id="run">运行程序</button>
+                    <button id="step">单步执行</button>
+                    <button id="pause">暂停</button>
+                    <button id="reset">重置</button>
+                    <button id="clear">清除输出</button>
+                </div>
+                
+                <div class="file-controls">
+                    <button id="download">下载代码</button>
+                    <button id="import">导入代码</button>
+                    <input type="file" id="file-input" class="file-input" accept=".bf,.breakfuck,.txt">
+                </div>
+                
+                <div class="examples">
+                    <select id="examples">
+                        <option value="">选择示例程序...</option>
+                        <option value="hello-world">Hello World</option>
+                        <option value="fibonacci">斐波那契数列</option>
+                        <option value="cat">回显程序</option>
+                        <option value="sierpinski">谢尔宾斯基三角形</option>
+                    </select>
+                </div>
+                
+                <div class="memory-container">
+                    <h2>内存状态</h2>
+                    <div class="memory-grid" id="memory"></div>
+                </div>
+            </div>
+            
+            <div class="panel">
+                <h2>输入/输出</h2>
+                <div class="output-container">
+                    <h3>输出:</h3>
+                    <div id="output"></div>
+                </div>
+                
+                <div style="margin-top: 20px;">
+                    <h3>输入:</h3>
+                    <textarea id="input" placeholder="程序输入..." style="height: 100px;"></textarea>
+                </div>
+                
+                <div class="status">
+                    <p>状态: <span id="status" class="highlight">就绪</span></p>
+                    <p>指针位置: <span id="pointer">0</span></p>
+                    <p>指令指针: <span id="instruction-pointer">0</span></p>
+                    <p>循环深度: <span id="loop-depth">0</span></p>
+                    <p>执行步数: <span id="execution-steps">0</span></p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="instructions">
+            <h2>Breakfuck 指令集</h2>
+            <table class="instruction-table">
+                <thead>
+                    <tr>
+                        <th>指令</th>
+                        <th>描述</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>></td>
+                        <td>指针向右移动</td>
+                    </tr>
+                    <tr>
+                        <td><</td>
+                        <td>指针向左移动</td>
+                    </tr>
+                    <tr>
+                        <td>+</td>
+                        <td>当前内存单元值加1</td>
+                    </tr>
+                    <tr>
+                        <td>-</td>
+                        <td>当前内存单元值减1</td>
+                    </tr>
+                    <tr>
+                        <td>.</td>
+                        <td>输出当前内存单元值对应的ASCII字符</td>
+                    </tr>
+                    <tr>
+                        <td>,</td>
+                        <td>从输入读取一个字符到当前内存单元</td>
+                    </tr>
+                    <tr>
+                        <td>[</td>
+                        <td>如果当前内存单元值为0，跳转到匹配的]之后</td>
+                    </tr>
+                    <tr>
+                        <td>]</td>
+                        <td>如果当前内存单元值不为0，跳转到匹配的[之后</td>
+                    </tr>
+                    <tr>
+                        <td>#</td>
+                        <td>Breakfuck新增：设置断点</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        class BreakfuckInterpreter {
+            constructor() {
+                this.memory = new Array(30000).fill(0);
+                this.pointer = 0;
+                this.instructionPointer = 0;
+                this.output = '';
+                this.input = '';
+                this.inputIndex = 0;
+                this.code = '';
+                this.running = false;
+                this.paused = false;
+                this.loopStack = [];
+                this.breakpoints = new Set();
+                this.stepMode = false;
+                this.loopMap = new Map();
+                this.executionSteps = 0;
+                this.lastChangedCell = -1; // 跟踪最后修改的内存单元
+            }
+            
+            initialize(code, input) {
+                this.memory = new Array(30000).fill(0);
+                this.pointer = 0;
+                this.instructionPointer = 0;
+                this.output = '';
+                this.input = input || '';
+                this.inputIndex = 0;
+                this.code = code || '';
+                this.running = true;
+                this.paused = false;
+                this.loopStack = [];
+                this.breakpoints.clear();
+                this.stepMode = false;
+                this.loopMap.clear();
+                this.executionSteps = 0;
+                this.lastChangedCell = -1;
+                
+                this._precomputeLoopMatches();
+                
+                for (let i = 0; i < this.code.length; i++) {
+                    if (this.code[i] === '#') {
+                        this.breakpoints.add(i);
+                    }
+                }
+            }
+            
+            _precomputeLoopMatches() {
+                const stack = [];
+                for (let i = 0; i < this.code.length; i++) {
+                    if (this.code[i] === '[') {
+                        stack.push(i);
+                    } else if (this.code[i] === ']') {
+                        if (stack.length > 0) {
+                            const start = stack.pop();
+                            this.loopMap.set(start, i);
+                            this.loopMap.set(i, start);
+                        }
+                    }
+                }
+            }
+            
+            step() {
+                if (!this.running || this.paused || this.instructionPointer >= this.code.length) {
+                    if (this.instructionPointer >= this.code.length) {
+                        this.running = false;
+                    }
+                    return false;
+                }
+                
+                const command = this.code[this.instructionPointer];
+                this.lastChangedCell = -1; // 重置最后修改的单元
+                
+                // 处理断点
+                if (this.breakpoints.has(this.instructionPointer)) {
+                    this.stepMode = true;
+                    this.paused = true;
+                    return true;
+                }
+                
+                // 忽略非指令字符
+                const validCommands = '><+-.,[]#';
+                if (!validCommands.includes(command)) {
+                    this.instructionPointer++;
+                    return true;
+                }
+                
+                try {
+                    switch (command) {
+                        case '>':
+                            this.pointer++;
+                            if (this.pointer >= this.memory.length) {
+                                this.pointer = 0;
+                            }
+                            break;
+                        case '<':
+                            this.pointer--;
+                            if (this.pointer < 0) {
+                                this.pointer = this.memory.length - 1;
+                            }
+                            break;
+                        case '+':
+                            this.memory[this.pointer] = (this.memory[this.pointer] + 1) & 0xFF;
+                            this.lastChangedCell = this.pointer;
+                            break;
+                        case '-':
+                            this.memory[this.pointer] = (this.memory[this.pointer] - 1 + 256) & 0xFF;
+                            this.lastChangedCell = this.pointer;
+                            break;
+                        case '.':
+                            this.output += String.fromCharCode(this.memory[this.pointer]);
+                            break;
+                        case ',':
+                            if (this.inputIndex < this.input.length) {
+                                this.memory[this.pointer] = this.input.charCodeAt(this.inputIndex) & 0xFF;
+                                this.inputIndex++;
+                                this.lastChangedCell = this.pointer;
+                            } else {
+                                this.memory[this.pointer] = 0;
+                                this.lastChangedCell = this.pointer;
+                            }
+                            break;
+                        case '[':
+                            if (this.memory[this.pointer] === 0) {
+                                const match = this.loopMap.get(this.instructionPointer);
+                                if (match !== undefined) {
+                                    this.instructionPointer = match;
+                                }
+                            } else {
+                                this.loopStack.push(this.instructionPointer);
+                            }
+                            break;
+                        case ']':
+                            if (this.memory[this.pointer] !== 0) {
+                                const match = this.loopMap.get(this.instructionPointer);
+                                if (match !== undefined) {
+                                    this.instructionPointer = match - 1;
+                                }
+                            } else {
+                                this.loopStack.pop();
+                            }
+                            break;
+                        case '#':
+                            this.stepMode = true;
+                            this.paused = true;
+                            break;
+                    }
+                } catch (error) {
+                    console.error('执行错误:', error);
+                    this.running = false;
+                    throw error;
+                }
+                
+                this.instructionPointer++;
+                this.executionSteps++;
+                
+                // 检查是否到达程序末尾
+                if (this.instructionPointer >= this.code.length) {
+                    this.running = false;
+                    return false;
+                }
+                
+                return true;
+            }
+            
+            // 新增：带延迟的运行方法
+            runWithDelay(delay, callback) {
+                if (!this.running || this.paused) return;
+                
+                // 执行一步
+                const hasNextStep = this.step();
+                callback(); // 更新UI
+                
+                if (hasNextStep && this.running && !this.paused) {
+                    // 如果需要继续执行，设置延迟
+                    setTimeout(() => {
+                        this.runWithDelay(delay, callback);
+                    }, delay);
+                } else {
+                    // 执行结束或暂停
+                    callback();
+                }
+            }
+            
+            togglePause() {
+                this.paused = !this.paused;
+                return this.paused;
+            }
+            
+            getMemory() {
+                return [...this.memory];
+            }
+            
+            getPointer() {
+                return this.pointer;
+            }
+            
+            getInstructionPointer() {
+                return this.instructionPointer;
+            }
+            
+            getOutput() {
+                return this.output;
+            }
+            
+            isRunning() {
+                return this.running;
+            }
+            
+            isPaused() {
+                return this.paused;
+            }
+            
+            getLoopDepth() {
+                return this.loopStack.length;
+            }
+            
+            getCurrentCommand() {
+                if (this.instructionPointer >= 0 && this.instructionPointer < this.code.length) {
+                    return this.code[this.instructionPointer];
+                }
+                return null;
+            }
+            
+            getExecutionSteps() {
+                return this.executionSteps;
+            }
+            
+            getLastChangedCell() {
+                return this.lastChangedCell;
+            }
+        }
+
+        // 初始化解释器
+        const interpreter = new BreakfuckInterpreter();
+        
+        // DOM元素
+        const editorElement = document.getElementById('editor');
+        const lineNumbersElement = document.getElementById('line-numbers');
+        const commandHighlightElement = document.getElementById('command-highlight');
+        const inputElement = document.getElementById('input');
+        const outputElement = document.getElementById('output');
+        const memoryElement = document.getElementById('memory');
+        const pointerElement = document.getElementById('pointer');
+        const instructionPointerElement = document.getElementById('instruction-pointer');
+        const statusElement = document.getElementById('status');
+        const loopDepthElement = document.getElementById('loop-depth');
+        const executionStepsElement = document.getElementById('execution-steps');
+        const fileInputElement = document.getElementById('file-input');
+        const examplesElement = document.getElementById('examples');
+        const runButton = document.getElementById('run');
+        const stepButton = document.getElementById('step');
+        const pauseButton = document.getElementById('pause');
+        const executionDelaySlider = document.getElementById('execution-delay');
+        const delayValueDisplay = document.getElementById('delay-value');
+        
+        // 按钮事件
+        runButton.addEventListener('click', runCode);
+        stepButton.addEventListener('click', stepCode);
+        pauseButton.addEventListener('click', togglePause);
+        document.getElementById('reset').addEventListener('click', resetCode);
+        document.getElementById('clear').addEventListener('click', clearOutput);
+        document.getElementById('download').addEventListener('click', downloadCode);
+        document.getElementById('import').addEventListener('click', importCode);
+        fileInputElement.addEventListener('change', handleFileSelect);
+        examplesElement.addEventListener('change', loadExample);
+        executionDelaySlider.addEventListener('input', updateDelayValue);
+        
+        // 编辑器事件
+        editorElement.addEventListener('input', updateLineNumbers);
+        editorElement.addEventListener('scroll', syncScroll);
+        editorElement.addEventListener('click', updateCommandHighlight);
+        editorElement.addEventListener('keyup', updateCommandHighlight);
+        
+        // 示例代码
+        const examples = {
+            'hello-world': '++++++++[>++++[>++>+++>+++>+<<<<-]>+>+>->>+[<]<-]>>.>---.+++++++..+++.>>.<-.<.+++.------.--------.>>+.>++.',
+            'fibonacci': '>++++++++++>+>+[[+++++[>++++++++<-]>.<++++++[>--------<-]+<<<]>.>>[[-]<[>+<-]>>[<<+>+>-]<[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>[-]>+>+<<<-[>+<-]]]]]]]]]]]+>>>]<<<]',
+            'cat': ',[.,]',
+            'sierpinski': '++++++++[>+>++++<<-]>++>>+<[-[>>+<<-]+>>]>+[-<<<[->[+[-]+>++>>>-<<]<[<]>>++++++[<<+++++>>-]+<<++.[-]<<]>.>+[>>]>+]'
+        };
+        
+        // 初始化
+        function initialize() {
+            updateLineNumbers();
+            initializeMemoryDisplay();
+            updateCommandHighlight();
+            updateDelayValue();
+        }
+        
+        function updateLineNumbers() {
+            const lines = editorElement.value.split('\n').length;
+            let lineNumbersHTML = '';
+            for (let i = 1; i <= lines; i++) {
+                lineNumbersHTML += i + '<br>';
+            }
+            lineNumbersElement.innerHTML = lineNumbersHTML;
+        }
+        
+        function syncScroll() {
+            lineNumbersElement.scrollTop = editorElement.scrollTop;
+            updateCommandHighlight();
+        }
+        
+        function initializeMemoryDisplay() {
+            memoryElement.innerHTML = '';
+            for (let i = 0; i < 100; i++) {
+                const cell = document.createElement('div');
+                cell.className = 'memory-cell';
+                cell.textContent = '0';
+                cell.id = `mem-${i}`;
+                memoryElement.appendChild(cell);
+            }
+        }
+        
+        function updateMemoryDisplay() {
+            const memory = interpreter.getMemory();
+            const pointer = interpreter.getPointer();
+            const lastChanged = interpreter.getLastChangedCell();
+            
+            // 清除之前的活跃状态和动画
+            document.querySelectorAll('.memory-cell').forEach(cell => {
+                cell.classList.remove('active');
+                if (!cell.classList.contains('changed')) return;
+                // 移除动画类以允许重新触发
+                cell.classList.remove('changed');
+                // 触发重排后重新添加
+                void cell.offsetWidth;
+            });
+            
+            // 更新可见的内存单元
+            for (let i = 0; i < 100; i++) {
+                const cell = document.getElementById(`mem-${i}`);
+                if (cell) {
+                    cell.textContent = memory[i];
+                    if (i === pointer) {
+                        cell.classList.add('active');
+                    }
+                    // 为修改过的单元添加动画效果
+                    if (lastChanged !== -1 && i === lastChanged) {
+                        cell.classList.add('changed');
+                    }
+                }
+            }
+            
+            pointerElement.textContent = pointer;
+            instructionPointerElement.textContent = interpreter.getInstructionPointer();
+            loopDepthElement.textContent = interpreter.getLoopDepth();
+            executionStepsElement.textContent = interpreter.getExecutionSteps();
+            updateCommandHighlight();
+        }
+        
+        function updateCommandHighlight() {
+            const ip = interpreter.getInstructionPointer();
+            const code = editorElement.value;
+            
+            if (ip < 0 || ip >= code.length) {
+                commandHighlightElement.style.display = 'none';
+                return;
+            }
+            
+            // 创建临时元素计算文本宽度
+            const temp = document.createElement('span');
+            temp.style.fontFamily = 'Courier New, monospace';
+            temp.style.fontSize = '16px';
+            temp.style.position = 'absolute';
+            temp.style.visibility = 'hidden';
+            temp.textContent = code[ip];
+            document.body.appendChild(temp);
+            
+            const width = temp.offsetWidth;
+            document.body.removeChild(temp);
+            
+            // 计算当前字符位置
+            const before = code.substring(0, ip);
+            const line = before.split('\n').length - 1;
+            const charInLine = before.length - (before.lastIndexOf('\n') + 1);
+            
+            // 设置高亮位置和大小
+            commandHighlightElement.style.left = (40 + charInLine * 10 + 2) + 'px';
+            commandHighlightElement.style.top = (line * 24 + 10) + 'px';
+            commandHighlightElement.style.width = width + 'px';
+            commandHighlightElement.style.height = '24px';
+            commandHighlightElement.style.display = 'block';
+        }
+        
+        function runCode() {
+            try {
+                const code = editorElement.value;
+                const input = inputElement.value;
+                const delay = parseInt(executionDelaySlider.value);
+                
+                runButton.disabled = true;
+                stepButton.disabled = true;
+                pauseButton.disabled = false;
+                
+                if (!interpreter.isRunning() || interpreter.isPaused()) {
+                    interpreter.initialize(code, input);
+                } else {
+                    interpreter.togglePause();
+                }
+                
+                updateDisplay();
+                interpreter.runWithDelay(delay, updateDisplay);
+                
+            } catch (error) {
+                outputElement.textContent += `\n错误: ${error.message}`;
+                statusElement.textContent = '执行错误';
+                statusElement.className = 'error';
+                resetButtonStates();
+            }
+        }
+        
+        function stepCode() {
+            try {
+                if (!interpreter.isRunning() || interpreter.isPaused()) {
+                    const code = editorElement.value;
+                    const input = inputElement.value;
+                    interpreter.initialize(code, input);
+                }
+                
+                interpreter.step();
+                updateDisplay();
+                
+                if (!interpreter.isRunning()) {
+                    resetButtonStates();
+                }
+            } catch (error) {
+                outputElement.textContent += `\n错误: ${error.message}`;
+                statusElement.textContent = '执行错误';
+                statusElement.className = 'error';
+            }
+        }
+        
+        function togglePause() {
+            const isPaused = interpreter.togglePause();
+            updateDisplay();
+            
+            if (isPaused) {
+                statusElement.textContent = '已暂停';
+                statusElement.className = 'highlight';
+                runButton.disabled = false;
+                stepButton.disabled = false;
+            } else {
+                statusElement.textContent = '运行中';
+                statusElement.className = 'highlight';
+                runButton.disabled = true;
+                stepButton.disabled = true;
+                const delay = parseInt(executionDelaySlider.value);
+                interpreter.runWithDelay(delay, updateDisplay);
+            }
+        }
+        
+        function resetCode() {
+            interpreter.running = false;
+            interpreter.paused = false;
+            outputElement.textContent = '';
+            statusElement.textContent = '已重置';
+            statusElement.className = 'success';
+            initializeMemoryDisplay();
+            pointerElement.textContent = '0';
+            instructionPointerElement.textContent = '0';
+            loopDepthElement.textContent = '0';
+            executionStepsElement.textContent = '0';
+            updateCommandHighlight();
+            
+            resetButtonStates();
+        }
+        
+        function clearOutput() {
+            outputElement.textContent = '';
+        }
+        
+        function updateDisplay() {
+            outputElement.textContent = interpreter.getOutput();
+            updateMemoryDisplay();
+            
+            if (interpreter.isRunning()) {
+                if (interpreter.isPaused()) {
+                    statusElement.textContent = '已暂停';
+                } else {
+                    statusElement.textContent = '运行中';
+                }
+                statusElement.className = 'highlight';
+            } else {
+                statusElement.textContent = '程序结束';
+                statusElement.className = 'success';
+                resetButtonStates();
+            }
+        }
+        
+        function downloadCode() {
+            const code = editorElement.value;
+            const blob = new Blob([code], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'breakfuck-program.bf';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+        
+        function importCode() {
+            fileInputElement.click();
+        }
+        
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                editorElement.value = e.target.result;
+                updateLineNumbers();
+                updateCommandHighlight();
+            };
+            reader.readAsText(file);
+            event.target.value = '';
+        }
+        
+        function loadExample() {
+            const example = examplesElement.value;
+            if (example && examples[example]) {
+                editorElement.value = examples[example];
+                updateLineNumbers();
+                updateCommandHighlight();
+            }
+        }
+        
+        function updateDelayValue() {
+            delayValueDisplay.textContent = executionDelaySlider.value;
+        }
+        
+        function resetButtonStates() {
+            runButton.disabled = false;
+            stepButton.disabled = false;
+            pauseButton.disabled = true;
+        }
+        
+        // 初始化显示
+        initialize();
+    </script>
+</body>
+</html>

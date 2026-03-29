@@ -1,0 +1,896 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>全能加密工具</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 25px;
+            margin-top: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 5px;
+        }
+        .subtitle {
+            text-align: center;
+            color: #7f8c8d;
+            margin-bottom: 20px;
+        }
+        textarea {
+            width: 100%;
+            height: 150px;
+            margin-bottom: 15px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: monospace;
+            resize: vertical;
+        }
+        .button-group {
+            margin: 20px 0;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        button {
+            padding: 10px 18px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        button:disabled {
+            background-color: #95a5a6;
+            cursor: not-allowed;
+        }
+        button.primary {
+            background-color: #2ecc71;
+        }
+        button.primary:hover {
+            background-color: #27ae60;
+        }
+        button.danger {
+            background-color: #e74c3c;
+        }
+        button.danger:hover {
+            background-color: #c0392b;
+        }
+        button.secondary {
+            background-color: #9b59b6;
+        }
+        button.secondary:hover {
+            background-color: #8e44ad;
+        }
+        .file-input {
+            margin-bottom: 20px;
+        }
+        .progress-container {
+            margin: 15px 0;
+            display: none;
+        }
+        progress {
+            width: 100%;
+            height: 20px;
+            border-radius: 4px;
+        }
+        .status {
+            margin-top: 8px;
+            font-weight: bold;
+            text-align: center;
+        }
+        .settings {
+            margin: 20px 0;
+            padding: 15px;
+            background-color: #f9f9f9;
+            border-radius: 6px;
+            border: 1px solid #eee;
+        }
+        label {
+            display: block;
+            margin: 8px 0;
+            font-weight: bold;
+        }
+        input[type="password"], input[type="text"], input[type="number"], select {
+            width: 100%;
+            padding: 8px;
+            margin: 5px 0 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .error {
+            color: #e74c3c;
+            font-weight: bold;
+        }
+        .success {
+            color: #2ecc71;
+            font-weight: bold;
+        }
+        .warning {
+            color: #f39c12;
+            font-weight: bold;
+        }
+        .algorithm-info {
+            background-color: #f0f8ff;
+            padding: 12px;
+            border-radius: 4px;
+            margin-top: 15px;
+            font-size: 14px;
+            border-left: 4px solid #3498db;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .tabs {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #ddd;
+        }
+        .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            background-color: #f1f1f1;
+            border: 1px solid #ddd;
+            border-bottom: none;
+            margin-right: 5px;
+            border-radius: 5px 5px 0 0;
+        }
+        .tab.active {
+            background-color: white;
+            border-bottom: 1px solid white;
+            margin-bottom: -1px;
+            font-weight: bold;
+        }
+        .settings-section {
+            margin-bottom: 15px;
+        }
+        .error-log {
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin-top: 15px;
+            background-color: #f9f9f9;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <h1>全能加密工具</h1>
+    <div class="subtitle">集成多种加密算法 | 支持错误日志</div>
+    
+    <div class="container">
+        <div class="tabs">
+            <div class="tab active" data-tab="encrypt">加密/解密</div>
+            <div class="tab" data-tab="info">算法说明</div>
+            <div class="tab" data-tab="logs">错误日志</div>
+        </div>
+        
+        <div id="encrypt-tab" class="tab-content active">
+            <div class="file-input">
+                <input type="file" id="fileInput" accept=".txt">
+                <p>或直接在下方输入/粘贴文本：</p>
+                <textarea id="textInput" placeholder="在此输入要加密或解密的文本..."></textarea>
+            </div>
+            
+            <div class="settings">
+                <div class="settings-section">
+                    <label for="algorithm">加密算法:</label>
+                    <select id="algorithm">
+                        <option value="aes">AES加密 (安全推荐)</option>
+                        <option value="base64">Base64编码</option>
+                        <option value="rot13">ROT13替换</option>
+                        <option value="caesar">凯撒密码</option>
+                        <option value="hybrid">复合加密 (Base64+双重AES，请参见算法说明再使用)</option>
+                    </select>
+                    <div id="algorithmDescription" class="algorithm-info">
+                        AES加密：高级加密标准，需要强密码，军事级安全性。
+                    </div>
+                </div>
+                
+                <div id="passwordSection" class="settings-section">
+                    <label for="passwordInput">密码/密钥:</label>
+                    <input type="password" id="passwordInput" placeholder="输入加密/解密密码">
+                    <label>
+                        <input type="checkbox" id="showPassword"> 显示密码
+                    </label>
+                </div>
+                
+                <div id="caesarSection" class="settings-section" style="display:none;">
+                    <label for="caesarShift">位移数 (1-25):</label>
+                    <input type="number" id="caesarShift" min="1" max="25" value="3">
+                </div>
+                
+                <div id="configParamSection" class="settings-section" style="display:none;">
+                    <label for="configParam">配置参数 (1-10000):</label>
+                    <input type="number" id="configParam" min="1" max="10000" placeholder="输入1到10000的配置参数">
+                </div>
+            </div>
+            
+            <div class="button-group">
+                <button id="encryptBtn" class="primary">加密/编码</button>
+                <button id="decryptBtn" class="primary">解密/解码</button>
+                <button id="saveBtn" disabled>保存结果</button>
+                <button id="saveLogBtn" class="secondary">保存错误日志</button>
+                <button id="clearBtn" class="danger">清空所有</button>
+            </div>
+            
+            <div class="progress-container" id="progressContainer">
+                <progress id="progressBar" value="0" max="100"></progress>
+                <div class="status" id="statusText">准备就绪...</div>
+            </div>
+            
+            <h3>结果:</h3>
+            <textarea id="resultArea" readonly></textarea>
+        </div>
+        
+        <div id="info-tab" class="tab-content">
+            <h2>加密算法说明</h2>
+            
+            <div class="algorithm-info">
+                <h3>AES加密</h3>
+                <p>高级加密标准(AES)，使用256位密钥和CBC模式，采用PBKDF2密钥派生函数。</p>
+                <p><strong>特点：</strong>军事级安全，需要密码，安全性高。</p>
+            </div>
+            
+            <div class="algorithm-info">
+                <h3>Base64编码</h3>
+                <p>将二进制数据转换为ASCII字符的编码方式，严格来说不是加密。</p>
+                <p><strong>特点：</strong>可逆，无密钥，常用于数据传输。</p>
+            </div>
+            
+            <div class="algorithm-info">
+                <h3>ROT13替换</h3>
+                <p>字母表中每个字母被替换为13位后的字母，对字母之外的字符不做处理。</p>
+                <p><strong>特点：</strong>简单替换，无需密钥，安全性很低。</p>
+            </div>
+            
+            <div class="algorithm-info">
+                <h3>凯撒密码</h3>
+                <p>古典加密方法，字母表中每个字母按固定位移替换(默认3位)。</p>
+                <p><strong>特点：</strong>历史悠久的加密方法，安全性低但有趣。</p>
+            </div>
+            
+            <div class="algorithm-info">
+                <h3>复合加密 (Base64+双重AES)</h3>
+                <p>先使用Base64编码，再进行两次AES加密，使用单一密码。</p>
+                <p><strong>特点：</strong>多层加密，安全性极高，需要密码。独家用法，其他地方无法解密，谨慎使用，需要牢记密钥和参数</p>
+                <p><strong>加密流程：</strong></p>
+                <ol>
+                    <li>第一步：使用Base64算法进行初步编码</li>
+                    <li>第二步：使用AES算法加密Base64结果</li>
+                    <li>第三步：再次使用AES算法加强加密</li>
+                </ol>
+            </div>
+        </div>
+        
+        <div id="logs-tab" class="tab-content">
+            <h2>错误日志</h2>
+            <button id="clearLogsBtn" class="danger">清空日志</button>
+            <div class="error-log" id="errorLog"></div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // 获取DOM元素
+            const elements = {
+                fileInput: document.getElementById('fileInput'),
+                textInput: document.getElementById('textInput'),
+                algorithm: document.getElementById('algorithm'),
+                passwordSection: document.getElementById('passwordSection'),
+                passwordInput: document.getElementById('passwordInput'),
+                showPassword: document.getElementById('showPassword'),
+                caesarSection: document.getElementById('caesarSection'),
+                caesarShift: document.getElementById('caesarShift'),
+                configParamSection: document.getElementById('configParamSection'),
+                configParam: document.getElementById('configParam'),
+                encryptBtn: document.getElementById('encryptBtn'),
+                decryptBtn: document.getElementById('decryptBtn'),
+                saveBtn: document.getElementById('saveBtn'),
+                saveLogBtn: document.getElementById('saveLogBtn'),
+                clearBtn: document.getElementById('clearBtn'),
+                clearLogsBtn: document.getElementById('clearLogsBtn'),
+                progressContainer: document.getElementById('progressContainer'),
+                progressBar: document.getElementById('progressBar'),
+                statusText: document.getElementById('statusText'),
+                resultArea: document.getElementById('resultArea'),
+                algorithmDescription: document.getElementById('algorithmDescription'),
+                errorLog: document.getElementById('errorLog'),
+                tabs: document.querySelectorAll('.tab'),
+                tabContents: document.querySelectorAll('.tab-content')
+            };
+            
+            let currentFileContent = '';
+            let processedContent = '';
+            let currentAlgorithm = 'aes';
+            let errorLogs = [];
+            
+            // 算法描述
+            const algorithmDescriptions = {
+                aes: "AES加密：高级加密标准，需要强密码，军事级安全性。",
+                base64: "Base64编码：将二进制数据转换为ASCII字符的编码方式，不是真正的加密。",
+                rot13: "ROT13替换：字母表中每个字母被替换为13位后的字母，安全性很低。",
+                caesar: "凯撒密码：古典加密方法，字母按固定位移替换(可设置1-25位)。",
+                hybrid: "复合加密：先使用Base64编码，再进行两次AES加密，安全性极高，需要密码。本站以外其他地方无法解密"
+            };
+            
+            // 初始化标签页
+            elements.tabs.forEach(tab => {
+                tab.addEventListener('click', function() {
+                    const tabId = this.getAttribute('data-tab');
+                    
+                    // 更新标签样式
+                    elements.tabs.forEach(t => t.classList.remove('active'));
+                    this.classList.add('active');
+                    
+                    // 更新内容显示
+                    elements.tabContents.forEach(content => {
+                        content.classList.remove('active');
+                    });
+                    document.getElementById(`${tabId}-tab`).classList.add('active');
+                });
+            });
+            
+            // 算法选择变化
+            elements.algorithm.addEventListener('change', function() {
+                currentAlgorithm = this.value;
+                elements.algorithmDescription.textContent = algorithmDescriptions[currentAlgorithm];
+                
+                // 显示/隐藏相关设置部分
+                if (currentAlgorithm === 'aes' || currentAlgorithm === 'hybrid') {
+                    elements.passwordSection.style.display = 'block';
+                    elements.caesarSection.style.display = 'none';
+                    elements.configParamSection.style.display = currentAlgorithm === 'hybrid' ? 'block' : 'none';
+                } else if (currentAlgorithm === 'caesar') {
+                    elements.passwordSection.style.display = 'none';
+                    elements.caesarSection.style.display = 'block';
+                    elements.configParamSection.style.display = 'none';
+                } else {
+                    elements.passwordSection.style.display = 'none';
+                    elements.caesarSection.style.display = 'none';
+                    elements.configParamSection.style.display = 'none';
+                }
+            });
+            
+            // 显示/隐藏密码
+            elements.showPassword.addEventListener('change', function() {
+                elements.passwordInput.type = this.checked ? 'text' : 'password';
+            });
+            
+            // 文件输入处理
+            elements.fileInput.addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                if (!file.name.endsWith('.txt')) {
+                    showError('请选择.txt文件');
+                    logError('文件类型错误', '只支持.txt文件');
+                    elements.fileInput.value = '';
+                    return;
+                }
+                
+                showProgress('正在读取文件...', 0);
+                
+                const reader = new FileReader();
+                reader.onprogress = function(e) {
+                    if (e.lengthComputable) {
+                        const percentLoaded = Math.round((e.loaded / e.total) * 100);
+                        updateProgress(percentLoaded);
+                    }
+                };
+                
+                reader.onload = function(e) {
+                    currentFileContent = e.target.result;
+                    elements.textInput.value = currentFileContent;
+                    showSuccess('文件加载完成!', 1000);
+                };
+                
+                reader.onerror = function() {
+                    showError('读取文件时出错');
+                    logError('文件读取错误', '无法读取文件内容');
+                };
+                
+                reader.readAsText(file);
+            });
+            
+            // ========== 加密算法实现 ==========
+            
+            // AES加密相关函数
+            async function getKeyMaterial(password, extraSalt = '') {
+                const encoder = new TextEncoder();
+                return await window.crypto.subtle.importKey(
+                    'raw',
+                    encoder.encode(password + extraSalt),
+                    { name: 'PBKDF2' },
+                    false,
+                    ['deriveBits', 'deriveKey']
+                );
+            }
+            
+            async function deriveKey(password, salt, extraSalt = '') {
+                const keyMaterial = await getKeyMaterial(password, extraSalt);
+                return await window.crypto.subtle.deriveKey(
+                    {
+                        name: 'PBKDF2',
+                        salt: salt,
+                        iterations: 100000,
+                        hash: 'SHA-256'
+                    },
+                    keyMaterial,
+                    { name: 'AES-CBC', length: 256 },
+                    false,
+                    ['encrypt', 'decrypt']
+                );
+            }
+            
+            async function aesEncrypt(text, password, extraSalt = '') {
+                try {
+                    // 生成随机盐值
+                    const salt = window.crypto.getRandomValues(new Uint8Array(16));
+                    
+                    // 派生密钥
+                    const key = await deriveKey(password, salt, extraSalt);
+                    
+                    // 生成IV
+                    const iv = window.crypto.getRandomValues(new Uint8Array(16));
+                    
+                    // 加密文本
+                    const encoder = new TextEncoder();
+                    const encrypted = await window.crypto.subtle.encrypt(
+                        {
+                            name: 'AES-CBC',
+                            iv: iv
+                        },
+                        key,
+                        encoder.encode(text)
+                    );
+                    
+                    // 组合盐值、IV和加密数据
+                    const combined = new Uint8Array(salt.length + iv.length + encrypted.byteLength);
+                    combined.set(salt, 0);
+                    combined.set(iv, salt.length);
+                    combined.set(new Uint8Array(encrypted), salt.length + iv.length);
+                    
+                    // 转换为Base64
+                    return btoa(String.fromCharCode.apply(null, combined));
+                } catch (error) {
+                    logError('AES加密错误', error.message);
+                    throw error;
+                }
+            }
+            
+            async function aesDecrypt(encryptedData, password, extraSalt = '') {
+                try {
+                    // 解码Base64
+                    const binaryString = atob(encryptedData);
+                    const bytes = new Uint8Array(binaryString.length);
+                    for (let i = 0; i < binaryString.length; i++) {
+                        bytes[i] = binaryString.charCodeAt(i);
+                    }
+                    
+                    // 提取盐值、IV和加密数据
+                    const salt = bytes.slice(0, 16);
+                    const iv = bytes.slice(16, 32);
+                    const data = bytes.slice(32);
+                    
+                    // 派生密钥
+                    const key = await deriveKey(password, salt, extraSalt);
+                    
+                    // 解密数据
+                    const decrypted = await window.crypto.subtle.decrypt(
+                        {
+                            name: 'AES-CBC',
+                            iv: iv
+                        },
+                        key,
+                        data
+                    );
+                    
+                    // 转换为文本
+                    const decoder = new TextDecoder();
+                    return decoder.decode(decrypted);
+                } catch (error) {
+                    logError('AES解密错误', error.message);
+                    throw error;
+                }
+            }
+            
+            // Base64编码/解码
+            function base64Encode(text) {
+                showProgress('正在编码...', 0);
+                const result = btoa(unescape(encodeURIComponent(text)));
+                showSuccess('Base64编码完成!', 100);
+                return result;
+            }
+            
+            function base64Decode(text) {
+                showProgress('正在解码...', 0);
+                try {
+                    const result = decodeURIComponent(escape(atob(text)));
+                    showSuccess('Base64解码完成!', 100);
+                    return result;
+                } catch (e) {
+                    showError('无效的Base64数据');
+                    logError('Base64解码错误', e.message);
+                    throw e;
+                }
+            }
+            
+            // ROT13加密/解密
+            function rot13(text) {
+                showProgress('正在处理ROT13...', 0);
+                let result = '';
+                
+                for (let i = 0; i < text.length; i++) {
+                    const c = text.charCodeAt(i);
+                    
+                    if (c >= 65 && c <= 90) { // 大写字母
+                        result += String.fromCharCode((c - 65 + 13) % 26 + 65);
+                    } else if (c >= 97 && c <= 122) { // 小写字母
+                        result += String.fromCharCode((c - 97 + 13) % 26 + 97);
+                    } else {
+                        result += text.charAt(i);
+                    }
+                    
+                    if (i % 100 === 0 || i === text.length - 1) {
+                        const progress = Math.round((i / text.length) * 100);
+                        updateProgress(progress);
+                    }
+                }
+                
+                showSuccess('ROT13处理完成!', 100);
+                return result;
+            }
+            
+            // 凯撒密码加密/解密
+            function caesarCipher(text, shift, decrypt = false) {
+                showProgress(decrypt ? '正在解密凯撒密码...' : '正在加密凯撒密码...', 0);
+                let result = '';
+                
+                if (decrypt) {
+                    shift = (26 - shift) % 26;
+                }
+                
+                for (let i = 0; i < text.length; i++) {
+                    const c = text.charCodeAt(i);
+                    
+                    if (c >= 65 && c <= 90) { // 大写字母
+                        result += String.fromCharCode((c - 65 + shift) % 26 + 65);
+                    } else if (c >= 97 && c <= 122) { // 小写字母
+                        result += String.fromCharCode((c - 97 + shift) % 26 + 97);
+                    } else {
+                        result += text.charAt(i);
+                    }
+                    
+                    if (i % 100 === 0 || i === text.length - 1) {
+                        const progress = Math.round((i / text.length) * 100);
+                        updateProgress(progress);
+                    }
+                }
+                
+                showSuccess(decrypt ? '凯撒解密完成!' : '凯撒加密完成!', 100);
+                return result;
+            }
+            
+            // 复合加密函数
+            async function hybridEncrypt(text, password, configParam) {
+                try {
+                    showProgress('开始复合加密...', 0);
+                    
+                    // 第一步：Base64编码
+                    showProgress('第一步：Base64编码...', 10);
+                    const base64Encoded = base64Encode(text);
+                    
+                    // 第二步：第一次AES加密
+                    showProgress('第二步：第一次AES加密...', 40);
+                    const aes1Encrypted = await aesEncrypt(base64Encoded, password, 'first' + configParam);
+                    
+                    // 第三步：第二次AES加密
+                    showProgress('第三步：第二次AES加密...', 70);
+                    const aes2Encrypted = await aesEncrypt(aes1Encrypted, password, 'second' + configParam);
+                    
+                    showSuccess('复合加密完成!', 100);
+                    return aes2Encrypted;
+                } catch (error) {
+                    logError('复合加密错误', error.message);
+                    throw error;
+                }
+            }
+            
+            // 复合解密函数
+            async function hybridDecrypt(encryptedText, password, configParam) {
+                try {
+                    showProgress('开始复合解密...', 0);
+                    
+                    // 第一步：第一次AES解密
+                    showProgress('第一步：第一次AES解密...', 30);
+                    const aes1Decrypted = await aesDecrypt(encryptedText, password, 'second' + configParam);
+                    
+                    // 第二步：第二次AES解密
+                    showProgress('第二步：第二次AES解密...', 60);
+                    const aes2Decrypted = await aesDecrypt(aes1Decrypted, password, 'first' + configParam);
+                    
+                    // 第三步：Base64解码
+                    showProgress('第三步：Base64解码...', 90);
+                    const base64Decoded = base64Decode(aes2Decrypted);
+                    
+                    showSuccess('复合解密完成!', 100);
+                    return base64Decoded;
+                } catch (error) {
+                    logError('复合解密错误', error.message);
+                    throw error;
+                }
+            }
+            
+            // ========== 界面功能 ==========
+            
+            // 显示进度
+            function showProgress(message, percent) {
+                elements.progressContainer.style.display = 'block';
+                elements.progressBar.value = percent;
+                elements.statusText.textContent = message;
+                elements.statusText.className = 'status';
+            }
+            
+            // 显示成功
+            function showSuccess(message, timeout) {
+                elements.progressBar.value = 100;
+                elements.statusText.textContent = message;
+                elements.statusText.className = 'status success';
+                
+                if (timeout) {
+                    setTimeout(() => {
+                        elements.progressContainer.style.display = 'none';
+                    }, timeout);
+                }
+            }
+            
+            // 显示错误
+            function showError(message) {
+                elements.progressBar.value = 0;
+                elements.statusText.textContent = message;
+                elements.statusText.className = 'status error';
+                elements.progressContainer.style.display = 'block';
+            }
+            
+            // 更新进度
+            function updateProgress(percent) {
+                elements.progressBar.value = percent;
+                elements.statusText.textContent = `处理中... ${percent}%`;
+            }
+            
+            // 记录错误日志
+            function logError(type, message) {
+                const timestamp = new Date().toISOString();
+                const logEntry = `${timestamp} [${type}] ${message}`;
+                errorLogs.push(logEntry);
+                updateErrorLogDisplay();
+            }
+            
+            // 更新错误日志显示
+            function updateErrorLogDisplay() {
+                elements.errorLog.textContent = errorLogs.join('\n');
+                elements.errorLog.scrollTop = elements.errorLog.scrollHeight;
+            }
+            
+            // 加密按钮点击事件
+            elements.encryptBtn.addEventListener('click', async function() {
+                const text = elements.textInput.value || currentFileContent;
+                
+                if (!text) {
+                    showError('请输入或加载要加密的文本');
+                    logError('输入错误', '没有输入文本');
+                    return;
+                }
+                
+                try {
+                    elements.saveBtn.disabled = true;
+                    let result;
+                    
+                    switch (currentAlgorithm) {
+                        case 'aes':
+                            if (!elements.passwordInput.value) {
+                                showError('AES加密需要输入密码');
+                                logError('输入错误', 'AES加密需要密码');
+                                return;
+                            }
+                            result = await aesEncrypt(text, elements.passwordInput.value);
+                            break;
+                        case 'base64':
+                            result = base64Encode(text);
+                            break;
+                        case 'rot13':
+                            result = rot13(text);
+                            break;
+                        case 'caesar':
+                            const shift = parseInt(elements.caesarShift.value) || 3;
+                            result = caesarCipher(text, shift);
+                            break;
+                        case 'hybrid':
+                            if (!elements.passwordInput.value) {
+                                showError('复合加密需要输入密码');
+                                logError('输入错误', '复合加密需要密码');
+                                return;
+                            }
+                            const configParam = parseInt(elements.configParam.value);
+                            if (!configParam || configParam < 1 || configParam > 10000) {
+                                showError('配置参数必须是1-10000的数字');
+                                logError('输入错误', '无效的配置参数');
+                                return;
+                            }
+                            result = await hybridEncrypt(text, elements.passwordInput.value, configParam);
+                            break;
+                        default:
+                            throw new Error('未知的算法');
+                    }
+                    
+                    processedContent = result;
+                    elements.resultArea.value = result;
+                    elements.saveBtn.disabled = false;
+                } catch (error) {
+                    elements.saveBtn.disabled = true;
+                    console.error('加密错误:', error);
+                }
+            });
+            
+            // 解密按钮点击事件
+            elements.decryptBtn.addEventListener('click', async function() {
+                const text = elements.textInput.value || currentFileContent;
+                
+                if (!text) {
+                    showError('请输入或加载要解密的文本');
+                    logError('输入错误', '没有输入文本');
+                    return;
+                }
+                
+                try {
+                    elements.saveBtn.disabled = true;
+                    let result;
+                    
+                    switch (currentAlgorithm) {
+                        case 'aes':
+                            if (!elements.passwordInput.value) {
+                                showError('AES解密需要输入密码');
+                                logError('输入错误', 'AES解密需要密码');
+                                return;
+                            }
+                            result = await aesDecrypt(text, elements.passwordInput.value);
+                            break;
+                        case 'base64':
+                            result = base64Decode(text);
+                            break;
+                        case 'rot13':
+                            result = rot13(text); // ROT13解密就是再次加密
+                            break;
+                        case 'caesar':
+                            const shift = parseInt(elements.caesarShift.value) || 3;
+                            result = caesarCipher(text, shift, true);
+                            break;
+                        case 'hybrid':
+                            if (!elements.passwordInput.value) {
+                                showError('复合解密需要输入密码');
+                                logError('输入错误', '复合解密需要密码');
+                                return;
+                            }
+                            const configParam = parseInt(elements.configParam.value);
+                            if (!configParam || configParam < 1 || configParam > 10000) {
+                                showError('配置参数必须是1-10000的数字');
+                                logError('输入错误', '无效的配置参数');
+                                return;
+                            }
+                            result = await hybridDecrypt(text, elements.passwordInput.value, configParam);
+                            break;
+                        default:
+                            throw new Error('未知的算法');
+                    }
+                    
+                    processedContent = result;
+                    elements.resultArea.value = result;
+                    elements.saveBtn.disabled = false;
+                } catch (error) {
+                    elements.saveBtn.disabled = true;
+                    console.error('解密错误:', error);
+                }
+            });
+            
+            // 保存按钮点击事件
+            elements.saveBtn.addEventListener('click', function() {
+                if (!processedContent) {
+                    showError('没有可保存的内容');
+                    logError('操作错误', '没有可保存的内容');
+                    return;
+                }
+                
+                const blob = new Blob([processedContent], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                
+                let fileName = 'result.txt';
+                if (currentAlgorithm === 'aes' || currentAlgorithm === 'hybrid') {
+                    fileName = elements.resultArea.value !== (elements.textInput.value || currentFileContent) ? 
+                              'encrypted.txt' : 'decrypted.txt';
+                } else if (currentAlgorithm === 'base64') {
+                    fileName = elements.resultArea.value !== (elements.textInput.value || currentFileContent) ? 
+                              'encoded.txt' : 'decoded.txt';
+                } else if (currentAlgorithm === 'rot13' || currentAlgorithm === 'caesar') {
+                    fileName = elements.resultArea.value !== (elements.textInput.value || currentFileContent) ? 
+                              'ciphered.txt' : 'deciphered.txt';
+                }
+                
+                a.download = fileName;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            });
+            
+            // 保存错误日志按钮点击事件
+            elements.saveLogBtn.addEventListener('click', function() {
+                if (errorLogs.length === 0) {
+                    showError('没有错误日志可保存');
+                    return;
+                }
+                
+                const blob = new Blob([errorLogs.join('\n')], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'encryption_errors.log';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            });
+            
+            // 清空按钮点击事件
+            elements.clearBtn.addEventListener('click', function() {
+                elements.textInput.value = '';
+                elements.resultArea.value = '';
+                currentFileContent = '';
+                processedContent = '';
+                elements.fileInput.value = '';
+                elements.passwordInput.value = '';
+                elements.saveBtn.disabled = true;
+                elements.progressContainer.style.display = 'none';
+            });
+            
+            // 清空日志按钮点击事件
+            elements.clearLogsBtn.addEventListener('click', function() {
+                errorLogs = [];
+                updateErrorLogDisplay();
+            });
+            
+            // 初始化界面
+            updateErrorLogDisplay();
+        });
+    </script>
+</body>
+</html>
