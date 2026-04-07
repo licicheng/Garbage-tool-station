@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>多频段多峰值MIDI | 三频段独立峰值控制 · 和弦提取 · 多音轨输出</title>
+    <title>三频段钢琴MIDI | 可独立禁用频段 · 灵活音轨控制</title>
     <style>
         * {
             box-sizing: border-box;
@@ -18,7 +18,7 @@
         }
 
         .card {
-            max-width: 1800px;
+            max-width: 1600px;
             width: 100%;
             margin: 0 auto;
             background: rgba(12, 20, 30, 0.96);
@@ -37,7 +37,7 @@
 
         .header h1 {
             margin: 0;
-            font-size: 1.6rem;
+            font-size: 1.8rem;
             font-weight: 700;
             background: linear-gradient(135deg, #cceeff, #7fb4e0);
             -webkit-background-clip: text;
@@ -112,7 +112,7 @@
             color: #c2e0ff;
         }
 
-        .bands-container {
+        .band-panel {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
             gap: 1rem;
@@ -125,6 +125,7 @@
             padding: 0.8rem;
             border: 1px solid #2a5a7a;
             transition: all 0.2s;
+            position: relative;
         }
 
         .band-card.bass { border-top: 3px solid #5f9eff; }
@@ -132,27 +133,25 @@
         .band-card.treble { border-top: 3px solid #ffaa66; }
         .band-card.disabled { opacity: 0.5; background: #0a0f18; filter: grayscale(0.2); }
 
-        .band-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 0.8rem;
-            flex-wrap: wrap;
-            gap: 8px;
-        }
-
         .band-title {
             font-weight: bold;
             font-size: 1rem;
+            margin-bottom: 0.5rem;
             display: flex;
+            justify-content: space-between;
             align-items: center;
-            gap: 6px;
         }
 
         .band-range {
-            font-size: 0.65rem;
+            font-size: 0.7rem;
             font-family: monospace;
             color: #aaccff;
+        }
+
+        .band-stats {
+            font-size: 0.7rem;
+            color: #c0e0ff;
+            margin-top: 0.3rem;
         }
 
         .toggle-switch {
@@ -200,48 +199,28 @@
             transform: translateX(22px);
         }
 
-        .peak-control {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-top: 8px;
-            background: #152232;
-            padding: 0.4rem 0.6rem;
-            border-radius: 2rem;
-        }
-
-        .peak-control label {
-            font-size: 0.7rem;
-            color: #b0d0f0;
-        }
-
-        .peak-control input {
-            width: 60px;
-            background: #2a4058;
-            color: white;
-            border: 1px solid #5a8ab0;
-            border-radius: 2rem;
-            padding: 0.2rem 0.5rem;
-            text-align: center;
-            font-family: monospace;
-        }
-
-        .band-stats {
+        .band-enabled-badge {
             font-size: 0.65rem;
-            color: #c0e0ff;
-            margin-top: 8px;
-            padding-top: 6px;
-            border-top: 1px solid #2a5a7a;
+            padding: 2px 6px;
+            border-radius: 20px;
+            background: #2c7c5c;
         }
 
-        .global-control {
+        .band-disabled-badge {
+            font-size: 0.65rem;
+            padding: 2px 6px;
+            border-radius: 20px;
+            background: #6a4e4e;
+        }
+
+        .control-panel {
             background: #0b111e70;
             border-radius: 1.5rem;
-            padding: 0.8rem 1.2rem;
+            padding: 1rem 1.2rem;
             margin-bottom: 1.2rem;
             display: flex;
             flex-wrap: wrap;
-            gap: 1rem;
+            gap: 1.5rem;
             align-items: center;
             justify-content: space-between;
         }
@@ -299,23 +278,26 @@
 
         .track-tabs {
             display: flex;
-            gap: 0.4rem;
+            gap: 0.5rem;
             margin-bottom: 1rem;
             border-bottom: 1px solid #2a6b8a;
             padding-bottom: 0.5rem;
             flex-wrap: wrap;
-            max-height: 120px;
-            overflow-y: auto;
         }
 
         .track-tab {
             background: #1a3343;
-            padding: 0.3rem 0.8rem;
+            padding: 0.4rem 1.2rem;
             border-radius: 2rem;
             cursor: pointer;
-            font-size: 0.7rem;
+            font-size: 0.8rem;
             transition: 0.1s;
-            white-space: nowrap;
+        }
+
+        .track-tab.disabled-tab {
+            opacity: 0.5;
+            cursor: not-allowed;
+            background: #2a3a4a;
         }
 
         .track-tab.active {
@@ -327,7 +309,7 @@
             background: #030810;
             border-radius: 1rem;
             padding: 1rem;
-            max-height: 280px;
+            max-height: 260px;
             overflow-y: auto;
             font-family: 'JetBrains Mono', monospace;
             font-size: 0.7rem;
@@ -359,20 +341,25 @@
             color: #6a8fb0;
             margin-top: 1.2rem;
         }
+
+        .piano-icon {
+            display: inline-block;
+            margin-right: 6px;
+        }
     </style>
 </head>
 <body>
 <div class="card">
     <div class="header">
-        <h1>🎵 多频段·多峰值MIDI合成器 | 三频段独立峰值控制 · 和弦提取 · 多音轨输出</h1>
-        <p>低音/中音/高音独立开关 | 每个频段独立设置峰值数量(1-5) | 每个峰值独立MIDI音轨 | 全部大钢琴音色</p>
+        <h1>🎹 三频段钢琴MIDI | 可独立禁用频段 · 灵活音轨控制</h1>
+        <p>低音·中音·高音独立开关 | 全部大钢琴音色 | 三音轨MIDI文件</p>
     </div>
     <div class="container">
         <div class="upload-area" id="uploadZone">
-            <div style="font-size: 2.5rem;">🎚️🎹🎵</div>
+            <div style="font-size: 2.5rem;">🎚️🎹🎹🎹</div>
             <div>点击或拖拽上传 MP3 / WAV / OGG / M4A</div>
             <label class="file-label">📂 选择音频文件<input type="file" id="audioFileInput" accept="audio/*"></label>
-            <div style="font-size:0.7rem; margin-top:6px;">✨ 每个频段独立控制 | 自定义峰值数量 | 完整保留和弦与层次</div>
+            <div style="font-size:0.7rem; margin-top:6px;">✨ 可独立启用/禁用低音、中音、高音频段 | 全部输出大钢琴音色</div>
         </div>
 
         <div class="info-bar">
@@ -381,57 +368,45 @@
             <span class="badge" id="sampleRateInfo">🔊 采样率: --</span>
         </div>
 
-        <div class="bands-container" id="bandsContainer">
-            <!-- 低音轨 -->
+        <div class="band-panel" id="bandStatsPanel">
             <div class="band-card bass" id="bassCard">
-                <div class="band-header">
-                    <div class="band-title">🎻 低音轨 <span class="band-range">65-250 Hz</span></div>
+                <div class="band-title">
+                    <span><span class="piano-icon">🎹</span> 低音钢琴轨</span>
                     <label class="toggle-switch">
                         <input type="checkbox" id="bassToggle" checked>
                         <span class="toggle-slider"></span>
                     </label>
                 </div>
-                <div class="peak-control">
-                    <label>🔢 峰值数量</label>
-                    <input type="number" id="bassPeaks" min="1" max="5" value="2" step="1">
-                </div>
+                <div class="band-range">65-250 Hz</div>
                 <div class="band-stats" id="bassStats">等待分析...</div>
             </div>
-            <!-- 中音轨 -->
             <div class="band-card mid" id="midCard">
-                <div class="band-header">
-                    <div class="band-title">🎸 中音轨 <span class="band-range">250-2000 Hz</span></div>
+                <div class="band-title">
+                    <span><span class="piano-icon">🎹</span> 中音钢琴轨</span>
                     <label class="toggle-switch">
                         <input type="checkbox" id="midToggle" checked>
                         <span class="toggle-slider"></span>
                     </label>
                 </div>
-                <div class="peak-control">
-                    <label>🔢 峰值数量</label>
-                    <input type="number" id="midPeaks" min="1" max="5" value="3" step="1">
-                </div>
+                <div class="band-range">250-2000 Hz</div>
                 <div class="band-stats" id="midStats">等待分析...</div>
             </div>
-            <!-- 高音轨 -->
             <div class="band-card treble" id="trebleCard">
-                <div class="band-header">
-                    <div class="band-title">🎺 高音轨 <span class="band-range">2000-8000 Hz</span></div>
+                <div class="band-title">
+                    <span><span class="piano-icon">🎹</span> 高音钢琴轨</span>
                     <label class="toggle-switch">
                         <input type="checkbox" id="trebleToggle" checked>
                         <span class="toggle-slider"></span>
                     </label>
                 </div>
-                <div class="peak-control">
-                    <label>🔢 峰值数量</label>
-                    <input type="number" id="treblePeaks" min="1" max="5" value="2" step="1">
-                </div>
+                <div class="band-range">2000-8000 Hz</div>
                 <div class="band-stats" id="trebleStats">等待分析...</div>
             </div>
         </div>
 
-        <div class="global-control">
+        <div class="control-panel">
             <div class="fft-selector">
-                <label>🎛️ FFT 大小</label>
+                <label>🎛️ FFT 大小 (频率分辨率)</label>
                 <select id="fftSizeSelect">
                     <option value="2048">2048 点</option>
                     <option value="4096">4096 点</option>
@@ -440,38 +415,40 @@
                 </select>
             </div>
             <div class="fft-selector">
-                <label>🎹 乐器</label>
-                <span style="background:#2a4058; padding:0.3rem 1rem; border-radius:2rem;">🎹 大钢琴 (所有音轨)</span>
+                <label>🎵 乐器</label>
+                <span style="background:#2a4058; padding:0.3rem 1rem; border-radius:2rem;">🎹 大钢琴 (GM 0)</span>
             </div>
         </div>
 
         <div class="action-buttons">
-            <button id="analyzeBtn" disabled class="btn-primary">🔬 多频段多峰值分析 → 生成MIDI</button>
-            <button id="downloadMidiBtn" disabled class="btn-success">🎵 下载 .mid 文件</button>
-            <button id="exportJsonBtn" disabled>📄 导出多轨JSON</button>
+            <button id="analyzeBtn" disabled class="btn-primary">🔬 三频段分析 → 生成钢琴音轨</button>
+            <button id="downloadMidiBtn" disabled class="btn-success">🎵 下载 .mid 文件 (仅启用音轨)</button>
+            <button id="exportJsonBtn" disabled>📄 导出三轨JSON</button>
         </div>
 
         <div class="status-area" id="statusMsg">
-            <span>⚙️ 等待音频加载 | 每个频段可独立设置峰值数量(1-5)，每个峰值生成独立MIDI音轨</span>
+            <span>⚙️ 等待音频加载 | 可独立禁用任意频段，只生成需要的钢琴音轨</span>
         </div>
 
         <canvas id="waveCanvas" width="900" height="100"></canvas>
 
         <div class="midi-panel">
             <div class="track-tabs" id="trackTabs">
-                <div class="track-tab active">等待分析</div>
+                <div class="track-tab active" data-track="bass">🎹 低音钢琴轨</div>
+                <div class="track-tab" data-track="mid">🎹 中音钢琴轨</div>
+                <div class="track-tab" data-track="treble">🎹 高音钢琴轨</div>
             </div>
             <div class="events-box" id="midiEventsDisplay">
-                <pre>等待分析... 多频段多峰值模式：低音/中音/高音频段独立分析，每个频段可设置1-5个峰值，每个峰值独立生成MIDI音轨，完整保留和弦与泛音层次。</pre>
+                <pre>等待分析... 可独立启用/禁用低音、中音、高音频段，全部使用大钢琴音色，只生成已启用频段的MIDI音轨。</pre>
             </div>
         </div>
         <div class="footer">
             ※ 核心特性：<br>
-            • <strong>三频段独立控制</strong>：低音(65-250Hz)、中音(250-2000Hz)、高音(2000-8000Hz)可独立启用/禁用。<br>
-            • <strong>每频段独立峰值数</strong>：每个频段可单独设置采样1-5个频谱峰值，按能量排序。<br>
-            • <strong>多音轨输出</strong>：每个频段内的每个峰值都生成独立MIDI音轨，全部大钢琴音色。<br>
-            • <strong>和弦保留</strong>：同时存在的多个峰值会被分别记录到不同音轨，完美保留和弦结构。<br>
-            💡 <strong>使用建议</strong>：低音2个峰值→捕捉贝斯双音；中音3个峰值→三和弦提取；高音2个峰值→泛音层。如果感觉太low请前往https://audio-convert.com/cn/mp3-converter/mp3-to-midi
+            • <strong>独立频段开关</strong>：可单独启用或禁用低音(65-250Hz)、中音(250-2000Hz)、高音(2000-8000Hz)频段。<br>
+            • <strong>全部钢琴音色</strong>：所有启用的音轨统一使用 GM 标准大钢琴音色 (Program 0)。<br>
+            • <strong>智能音轨生成</strong>：MIDI文件只包含已启用的音轨，节省空间，便于专注特定频段。<br>
+            • <strong>连续流分析</strong>：75%重叠FFT保证时序连续性，完整保留音频层次感。<br>
+            💡 <strong>使用技巧</strong>：想只听贝斯线？关闭中音和高音；想听旋律？关闭低音；自由组合！
         </div>
     </div>
 </div>
@@ -491,34 +468,33 @@
         const midiDisplayPre = document.querySelector('#midiEventsDisplay pre');
         const waveCanvas = document.getElementById('waveCanvas');
         const fftSizeSelect = document.getElementById('fftSizeSelect');
+        const bassStatsSpan = document.getElementById('bassStats');
+        const midStatsSpan = document.getElementById('midStats');
+        const trebleStatsSpan = document.getElementById('trebleStats');
         
         // 频段开关
         const bassToggle = document.getElementById('bassToggle');
         const midToggle = document.getElementById('midToggle');
         const trebleToggle = document.getElementById('trebleToggle');
-        const bassPeaksInput = document.getElementById('bassPeaks');
-        const midPeaksInput = document.getElementById('midPeaks');
-        const treblePeaksInput = document.getElementById('treblePeaks');
         const bassCard = document.getElementById('bassCard');
         const midCard = document.getElementById('midCard');
         const trebleCard = document.getElementById('trebleCard');
         
-        // 频段定义
-        const BANDS = {
-            bass: { name: '低音', minFreq: 65, maxFreq: 250, toggle: bassToggle, card: bassCard, peaksInput: bassPeaksInput, color: '#5f9eff' },
-            mid: { name: '中音', minFreq: 250, maxFreq: 2000, toggle: midToggle, card: midCard, peaksInput: midPeaksInput, color: '#7fdd8f' },
-            treble: { name: '高音', minFreq: 2000, maxFreq: 8000, toggle: trebleToggle, card: trebleCard, peaksInput: treblePeaksInput, color: '#ffaa66' }
-        };
-        
+        // 三频段数据存储
+        let allTrackEvents = { bass: [], mid: [], treble: [] };
         let currentFFTSize = 8192;
         let currentHopSize = Math.floor(currentFFTSize / 4);
         let audioContext = null;
         let currentAudioBuffer = null;
         let currentFileName = "";
+        let analysisDone = false;
         
-        // 存储所有音轨事件: { bass_0, bass_1, mid_0, mid_1, ... }
-        let allTrackEvents = [];
-        let trackMetadata = []; // 存储每个音轨的元数据 { band, peakIndex }
+        // 频段定义 (频率范围 Hz)
+        const BANDS = {
+            bass: { name: '低音钢琴', minFreq: 65, maxFreq: 250, channel: 0, program: 0, toggle: bassToggle, card: bassCard },
+            mid: { name: '中音钢琴', minFreq: 250, maxFreq: 2000, channel: 1, program: 0, toggle: midToggle, card: midCard },
+            treble: { name: '高音钢琴', minFreq: 2000, maxFreq: 8000, channel: 2, program: 0, toggle: trebleToggle, card: trebleCard }
+        };
         
         // 更新卡片视觉状态
         function updateCardVisuals() {
@@ -539,12 +515,16 @@
             currentFFTSize = parseInt(e.target.value);
             currentHopSize = Math.floor(currentFFTSize / 4);
             if(currentAudioBuffer) {
-                setStatus(`FFT切换至 ${currentFFTSize} 点 | 需重新分析`);
+                const freqRes = currentAudioBuffer.sampleRate / currentFFTSize;
+                setStatus(`FFT切换至 ${currentFFTSize} 点 | 频率分辨率 ${freqRes.toFixed(2)}Hz | 需重新分析`);
+                analysisDone = false;
+                downloadMidiBtn.disabled = true;
+                exportJsonBtn.disabled = true;
             }
         });
         
         function setStatus(msg, isError = false) {
-            statusDiv.innerHTML = `<span>${isError ? '⚠️' : '🎵'} ${msg}</span>`;
+            statusDiv.innerHTML = `<span>${isError ? '⚠️' : '🎹'} ${msg}</span>`;
             console.log(msg);
         }
         
@@ -625,49 +605,56 @@
             return frame;
         }
         
-        // 在指定频段内获取前N个峰值 (带抛物线插值)
-        function getTopPeaksInBand(mags, freqRes, minFreq, maxFreq, peakCount) {
-            const startBin = Math.max(2, Math.floor(minFreq / freqRes));
-            const endBin = Math.min(mags.length - 3, Math.floor(maxFreq / freqRes));
-            if(startBin >= endBin) return [];
+        // 在指定频段内寻找峰值频率 (带抛物线插值)
+        function findPeakInBand(mags, freqRes, minFreq, maxFreq) {
+            const startBin = Math.max(1, Math.floor(minFreq / freqRes));
+            const endBin = Math.min(mags.length - 2, Math.floor(maxFreq / freqRes));
+            if(startBin >= endBin) return null;
             
-            let peaks = [];
+            let maxIdx = startBin;
+            let maxMag = 0;
             for(let i = startBin; i <= endBin; i++) {
-                if(mags[i] > mags[i-1] && mags[i] > mags[i+1] && mags[i] > 0.0005) {
-                    let refinedIdx = i;
-                    const y0 = mags[i-1], y1 = mags[i], y2 = mags[i+1];
-                    const denom = y0 - 2*y1 + y2;
-                    if(Math.abs(denom) > 1e-10) {
-                        let offset = (y0 - y2) / (2 * denom);
-                        offset = Math.min(Math.max(offset, -0.5), 0.5);
-                        refinedIdx = i + offset;
-                    }
-                    let freq = refinedIdx * freqRes;
-                    if(freq >= minFreq && freq <= maxFreq) {
-                        peaks.push({ freq: freq, mag: mags[i] });
-                    }
+                if(mags[i] > maxMag) {
+                    maxMag = mags[i];
+                    maxIdx = i;
                 }
             }
-            peaks.sort((a,b) => b.mag - a.mag);
-            return peaks.slice(0, peakCount);
+            if(maxMag < 0.0005) return null;
+            
+            // 抛物线插值
+            let refinedIdx = maxIdx;
+            if(maxIdx > 0 && maxIdx < mags.length-1) {
+                const y0 = mags[maxIdx-1], y1 = mags[maxIdx], y2 = mags[maxIdx+1];
+                const denom = y0 - 2*y1 + y2;
+                if(Math.abs(denom) > 1e-10) {
+                    let offset = (y0 - y2) / (2 * denom);
+                    offset = Math.min(Math.max(offset, -0.5), 0.5);
+                    refinedIdx = maxIdx + offset;
+                }
+            }
+            let freq = refinedIdx * freqRes;
+            if(freq < minFreq) freq = minFreq;
+            if(freq > maxFreq) freq = maxFreq;
+            return freq;
         }
         
         function freqToMidi(freq) {
-            if(freq < 55) return null;
+            if(freq < 30) return null;
             const midi = 12 * Math.log2(freq / 440) + 69;
             let rounded = Math.round(midi);
+            // 约等于宽容模式
             const diff = Math.abs(midi - rounded);
             if(diff > 0.55) {
                 const neighbor = midi > rounded ? rounded + 1 : rounded - 1;
                 if(Math.abs(midi - neighbor) < diff) rounded = neighbor;
             }
-            if(rounded < 24) rounded = 24;
+            if(rounded < 21) rounded = 21;
             if(rounded > 108) rounded = 108;
             return rounded;
         }
         
-        // 获取单帧的所有频段的多峰值音符
-        function getAllBandPeaks(frame, sampleRate, fftSize) {
+        // 获取单帧的三频段音符
+        function getTriBandNotes(frame, sampleRate, fftSize) {
             let n = 1;
             while (n < frame.length) n <<= 1;
             if(n < fftSize) n = fftSize;
@@ -684,25 +671,18 @@
             
             const result = {};
             for(let [bandKey, band] of Object.entries(BANDS)) {
-                if(!band.toggle.checked) {
-                    result[bandKey] = [];
-                    continue;
+                const peakFreq = findPeakInBand(mags, freqRes, band.minFreq, band.maxFreq);
+                if(peakFreq) {
+                    result[bandKey] = freqToMidi(peakFreq);
+                } else {
+                    result[bandKey] = null;
                 }
-                const peakCount = Math.min(5, Math.max(1, parseInt(band.peaksInput.value) || 2));
-                const peaks = getTopPeaksInBand(mags, freqRes, band.minFreq, band.maxFreq, peakCount);
-                const notes = [];
-                for(let p of peaks) {
-                    const midi = freqToMidi(p.freq);
-                    if(midi !== null) notes.push(midi);
-                }
-                while(notes.length < peakCount) notes.push(null);
-                result[bandKey] = notes;
             }
             return result;
         }
         
-        // 连续流提取多频段多峰值音符序列
-        function extractAllBandFrames(audioBuffer, fftSize, hopSize) {
+        // 连续流提取三频段音符序列
+        function extractTriBandFrames(audioBuffer, fftSize, hopSize) {
             const channelData = audioBuffer.getChannelData(0);
             const sampleRate = audioBuffer.sampleRate;
             const totalSamples = channelData.length;
@@ -712,32 +692,33 @@
             for(let start = 0; start + frameSize <= totalSamples; start += hopSize) {
                 const frameSamples = new Float32Array(frameSize);
                 for(let i=0; i<frameSize; i++) frameSamples[i] = channelData[start + i] || 0;
-                const bandPeaks = getAllBandPeaks(frameSamples, sampleRate, fftSize);
-                const frameData = { time: start / sampleRate };
-                for(let [bandKey, notes] of Object.entries(bandPeaks)) {
-                    frameData[bandKey] = notes;
-                }
-                frames.push(frameData);
+                const notes = getTriBandNotes(frameSamples, sampleRate, fftSize);
+                frames.push({
+                    time: start / sampleRate,
+                    bass: notes.bass,
+                    mid: notes.mid,
+                    treble: notes.treble
+                });
             }
             return frames;
         }
         
-        // 将帧序列转换为音符事件 (每个频段的每个峰值独立)
-        function framesToEventsForPeak(frames, bandKey, peakIndex) {
+        // 将帧序列转换为音符事件 (每个频段独立)
+        function framesToEvents(frames, bandKey) {
             if(!frames.length) return [];
             const events = [];
-            let currentNote = frames[0][bandKey]?.[peakIndex] || null;
+            let currentNote = frames[0][bandKey];
             let startTime = frames[0].time;
             
             for(let i = 1; i < frames.length; i++) {
-                const curNote = frames[i][bandKey]?.[peakIndex] || null;
+                const curNote = frames[i][bandKey];
                 const curTime = frames[i].time;
                 if(curNote !== currentNote) {
                     if(currentNote !== null) {
                         events.push({ type: 'note_off', note: currentNote, endTime: curTime });
                     }
                     if(curNote !== null) {
-                        events.push({ type: 'note_on', note: curNote, time: curTime, velocity: 70 });
+                        events.push({ type: 'note_on', note: curNote, time: curTime, velocity: 75 });
                     }
                     currentNote = curNote;
                     startTime = curTime;
@@ -750,10 +731,17 @@
             return events;
         }
         
-        // 生成多音轨MIDI文件
-        function generateMultiTrackMidi(trackEventsList, trackMetaList, ticksPerQuarter=480, tempoBPM=120) {
-            const validTracks = trackEventsList.filter(events => events && events.length > 0);
-            if(validTracks.length === 0) return null;
+        // 生成MIDI文件 (只包含启用的音轨)
+        function generateMultiTrackMidi(trackEventsMap, ticksPerQuarter=480, tempoBPM=120) {
+            // 收集启用的音轨
+            const enabledTracks = [];
+            for(let [bandKey, events] of Object.entries(trackEventsMap)) {
+                if(BANDS[bandKey].toggle.checked && events.length > 0) {
+                    enabledTracks.push({ bandKey, events, channel: BANDS[bandKey].channel, name: BANDS[bandKey].name });
+                }
+            }
+            
+            if(enabledTracks.length === 0) return null;
             
             const microsPerQuarter = 60000000 / tempoBPM;
             const ticksPerSec = ticksPerQuarter / (microsPerQuarter / 1e6);
@@ -765,10 +753,11 @@
             function wU32(v) { const arr = new Uint8Array(4); arr[0]=v>>24; arr[1]=v>>16; arr[2]=v>>8; arr[3]=v; chunks.push(arr); }
             function wVar(v) { const buf=[]; buf.push(v&0x7F); while(v>>=7) buf.unshift(0x80|(v&0x7F)); for(let b of buf) wU8(b); }
             
+            // MThd 头 - 格式1
             wU8(0x4D);wU8(0x54);wU8(0x68);wU8(0x64);
             wU32(6);
-            wU16(1);
-            wU16(1 + validTracks.length);
+            wU16(1); // 格式1
+            wU16(1 + enabledTracks.length); // tempo轨 + 启用音轨数
             wU16(ticksPerQuarter);
             
             // 轨道0: Tempo
@@ -781,27 +770,28 @@
             t0Var(0); t0U8(0xFF);t0U8(0x2F);t0U8(0);
             const tr0Data=new Uint8Array(tr0); wU32(tr0Data.length); chunks.push(tr0Data);
             
-            // 为每个音轨生成数据
-            for(let idx = 0; idx < trackEventsList.length; idx++) {
-                const events = trackEventsList[idx];
-                if(!events.length) continue;
-                const meta = trackMetaList[idx];
-                
+            // 为每个启用的频段生成钢琴音轨
+            for(let track of enabledTracks) {
                 wU8(0x4D);wU8(0x54);wU8(0x72);wU8(0x6B);
                 const trData = [];
                 function tU8(v){trData.push(v);}
                 function tVar(v){const b=[];b.push(v&0x7F);while(v>>=7)b.unshift(0x80|(v&0x7F));for(let x of b) tU8(x);}
                 
-                const channel = idx % 16;
-                const trackName = `${meta.bandName}轨_峰值${meta.peakIndex+1}`;
-                tVar(0); tU8(0xFF); tU8(0x03); tVar(trackName.length); 
-                for(let c of trackName) tU8(c.charCodeAt(0));
+                const channel = track.channel;
                 
+                // 音轨名称
+                tVar(0); tU8(0xFF); tU8(0x03); tVar(track.name.length); 
+                for(let c of track.name) tU8(c.charCodeAt(0));
+                
+                // 设置乐器为钢琴 (GM Program 0)
                 tVar(0); tU8(0xC0 + channel); tU8(0);
+                
+                // 设置音量
                 tVar(0); tU8(0xB0 + channel); tU8(0x07); tU8(100);
                 
+                // 构建MIDI事件
                 const midiEvents = [];
-                for(let ev of events) {
+                for(let ev of track.events) {
                     if(ev.type === 'note_on') midiEvents.push({ tick: toTicks(ev.time), type: 'note_on', note: ev.note, vel: ev.velocity });
                     else if(ev.type === 'note_off') midiEvents.push({ tick: toTicks(ev.endTime), type: 'note_off', note: ev.note, vel: 0 });
                 }
@@ -827,121 +817,95 @@
             return final;
         }
         
+        function formatTrackPreview(events, bandName, duration, isEnabled) {
+            if(!isEnabled) return `[${bandName}] 已禁用，未生成此音轨`;
+            if(!events.length) return `[${bandName}] 无有效音符`;
+            const onCount = events.filter(e=>e.type==='note_on').length;
+            let lines = [`🎹 ${bandName} | 音符数: ${onCount} | 时长: ${duration.toFixed(2)}s\n`];
+            let count = 0;
+            for(let ev of events.slice(0, 45)) {
+                if(ev.type === 'note_on') {
+                    const noteName = getNoteName(ev.note);
+                    lines.push(`  🎵 ON  ${ev.time.toFixed(2)}s | MIDI ${ev.note} (${noteName})`);
+                } else {
+                    lines.push(`  🔇 OFF ${ev.endTime.toFixed(2)}s | MIDI ${ev.note}`);
+                }
+                if(++count > 40) { lines.push("  ... 更多事件省略 ..."); break; }
+            }
+            return lines.join('\n');
+        }
+        
         function getNoteName(midi) {
             const notes = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
             const octave = Math.floor(midi / 12) - 1;
             return `${notes[midi % 12]}${octave}`;
         }
         
-        function formatTrackPreview(events, bandName, peakIdx, duration) {
-            if(!events.length) return `[${bandName}轨 峰值${peakIdx+1}] 无有效音符`;
-            const onCount = events.filter(e=>e.type==='note_on').length;
-            let lines = [`🎵 ${bandName}轨 峰值${peakIdx+1} | 音符数: ${onCount}\n`];
-            let count = 0;
-            for(let ev of events.slice(0, 35)) {
-                if(ev.type === 'note_on') {
-                    lines.push(`  🎵 ON  ${ev.time.toFixed(2)}s | MIDI ${ev.note} (${getNoteName(ev.note)})`);
-                } else {
-                    lines.push(`  🔇 OFF ${ev.endTime.toFixed(2)}s`);
-                }
-                if(++count > 30) { lines.push("  ..."); break; }
-            }
-            return lines.join('\n');
-        }
-        
-        let currentTrackIndex = 0;
-        
-        function updateTrackTabs() {
-            const container = document.getElementById('trackTabs');
-            container.innerHTML = '';
-            for(let i = 0; i < trackMetadata.length; i++) {
-                const meta = trackMetadata[i];
-                const tab = document.createElement('div');
-                tab.className = 'track-tab' + (i === currentTrackIndex ? ' active' : '');
-                tab.dataset.trackIndex = i;
-                tab.innerHTML = `🎹 ${meta.bandName} 峰值${meta.peakIndex+1}`;
-                tab.addEventListener('click', () => {
-                    document.querySelectorAll('.track-tab').forEach(t => t.classList.remove('active'));
-                    tab.classList.add('active');
-                    currentTrackIndex = i;
-                    updateDisplay();
-                });
-                container.appendChild(tab);
-            }
-            if(trackMetadata.length === 0) {
-                container.innerHTML = '<div class="track-tab">等待分析</div>';
-            }
-        }
+        let currentTrackView = 'bass';
         
         function updateDisplay() {
-            if(currentTrackIndex < allTrackEvents.length) {
-                const events = allTrackEvents[currentTrackIndex];
-                const meta = trackMetadata[currentTrackIndex];
-                const preview = formatTrackPreview(events, meta.bandName, meta.peakIndex, currentAudioBuffer?.duration || 0);
-                midiDisplayPre.innerText = preview;
-            } else {
-                midiDisplayPre.innerText = '无数据';
-            }
+            const isEnabled = BANDS[currentTrackView].toggle.checked;
+            const events = allTrackEvents[currentTrackView];
+            const bandName = BANDS[currentTrackView].name;
+            const preview = formatTrackPreview(events, bandName, currentAudioBuffer?.duration || 0, isEnabled);
+            midiDisplayPre.innerText = preview;
             
             // 更新统计面板
-            const bandStats = {};
-            for(let [bandKey, band] of Object.entries(BANDS)) {
-                bandStats[bandKey] = { total: 0, peaks: [] };
-            }
-            for(let i = 0; i < trackMetadata.length; i++) {
-                const meta = trackMetadata[i];
-                const noteCount = allTrackEvents[i].filter(e=>e.type==='note_on').length;
-                bandStats[meta.bandKey].total += noteCount;
-                bandStats[meta.bandKey].peaks[meta.peakIndex] = noteCount;
-            }
+            const bassEnabled = BANDS.bass.toggle.checked;
+            const midEnabled = BANDS.mid.toggle.checked;
+            const trebleEnabled = BANDS.treble.toggle.checked;
             
-            document.getElementById('bassStats').innerHTML = BANDS.bass.toggle.checked ? 
-                `🎵 峰值数: ${parseInt(bassPeaksInput.value)} | 总音符: ${bandStats.bass?.total || 0}` : `⛔ 已禁用`;
-            document.getElementById('midStats').innerHTML = BANDS.mid.toggle.checked ? 
-                `🎵 峰值数: ${parseInt(midPeaksInput.value)} | 总音符: ${bandStats.mid?.total || 0}` : `⛔ 已禁用`;
-            document.getElementById('trebleStats').innerHTML = BANDS.treble.toggle.checked ? 
-                `🎵 峰值数: ${parseInt(treblePeaksInput.value)} | 总音符: ${bandStats.treble?.total || 0}` : `⛔ 已禁用`;
+            bassStatsSpan.innerHTML = bassEnabled ? `🎹 音符: ${allTrackEvents.bass.filter(e=>e.type==='note_on').length} 个 | 已启用` : `⛔ 已禁用 | 不生成此音轨`;
+            midStatsSpan.innerHTML = midEnabled ? `🎹 音符: ${allTrackEvents.mid.filter(e=>e.type==='note_on').length} 个 | 已启用` : `⛔ 已禁用 | 不生成此音轨`;
+            trebleStatsSpan.innerHTML = trebleEnabled ? `🎹 音符: ${allTrackEvents.treble.filter(e=>e.type==='note_on').length} 个 | 已启用` : `⛔ 已禁用 | 不生成此音轨`;
+            
+            // 更新标签页禁用样式
+            document.querySelectorAll('.track-tab').forEach(tab => {
+                const track = tab.dataset.track;
+                if(!BANDS[track].toggle.checked) {
+                    tab.classList.add('disabled-tab');
+                } else {
+                    tab.classList.remove('disabled-tab');
+                }
+            });
         }
         
         function downloadMidi() {
-            if(allTrackEvents.length === 0 || !allTrackEvents.some(e => e.length > 0)){ 
-                setStatus("没有有效音符数据，请先分析", true); return; 
-            }
-            const midiData = generateMultiTrackMidi(allTrackEvents, trackMetadata, 480, 120);
-            if(!midiData) { setStatus("MIDI生成失败", true); return; }
+            const hasEnabledEvents = Object.entries(allTrackEvents).some(([key, events]) => BANDS[key].toggle.checked && events.length > 0);
+            if(!hasEnabledEvents){ setStatus("没有启用的音轨包含音符数据，请先分析或启用至少一个频段", true); return; }
+            const midiData = generateMultiTrackMidi(allTrackEvents, 480, 120);
+            if(!midiData) { setStatus("MIDI生成失败，没有启用的音轨", true); return; }
             const blob = new Blob([midiData], {type:"audio/midi"});
             const url=URL.createObjectURL(blob);
             const a=document.createElement('a');
             a.href=url;
-            a.download=`${currentFileName.replace(/\.[^/.]+$/,"")}_multiband_${trackMetadata.length}tracks.mid`;
+            const enabledNames = Object.keys(BANDS).filter(k => BANDS[k].toggle.checked).map(k => BANDS[k].name).join('_');
+            a.download=`${currentFileName.replace(/\.[^/.]+$/,"")}_${enabledNames}.mid`;
             document.body.appendChild(a); a.click();
             setTimeout(()=>{ document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
-            setStatus(`✅ MIDI文件已生成 | ${trackMetadata.length}个音轨`);
+            setStatus(`✅ MIDI文件已生成 | 包含音轨: ${enabledNames}`);
         }
         
         function exportJSON(){
-            if(allTrackEvents.length === 0){ setStatus("无数据", true); return; }
+            const hasEnabledEvents = Object.entries(allTrackEvents).some(([key, events]) => BANDS[key].toggle.checked && events.length > 0);
+            if(!hasEnabledEvents){ setStatus("没有启用的音轨包含音符数据", true); return; }
             const data = {
                 fileName: currentFileName,
                 duration: currentAudioBuffer?.duration,
                 sampleRate: currentAudioBuffer?.sampleRate,
                 fftSize: currentFFTSize,
-                bands: {
-                    bass: { enabled: BANDS.bass.toggle.checked, peakCount: parseInt(bassPeaksInput.value) },
-                    mid: { enabled: BANDS.mid.toggle.checked, peakCount: parseInt(midPeaksInput.value) },
-                    treble: { enabled: BANDS.treble.toggle.checked, peakCount: parseInt(treblePeaksInput.value) }
-                },
-                tracks: trackMetadata.map((meta, idx) => ({
-                    band: meta.bandName,
-                    peakIndex: meta.peakIndex + 1,
-                    noteCount: allTrackEvents[idx].filter(e=>e.type==='note_on').length,
-                    events: allTrackEvents[idx]
-                }))
+                instrument: "Acoustic Grand Piano (GM 0)",
+                enabledBands: Object.keys(BANDS).filter(k => BANDS[k].toggle.checked),
+                tracks: {
+                    bass: { enabled: BANDS.bass.toggle.checked, noteCount: allTrackEvents.bass.filter(e=>e.type==='note_on').length, events: allTrackEvents.bass },
+                    mid: { enabled: BANDS.mid.toggle.checked, noteCount: allTrackEvents.mid.filter(e=>e.type==='note_on').length, events: allTrackEvents.mid },
+                    treble: { enabled: BANDS.treble.toggle.checked, noteCount: allTrackEvents.treble.filter(e=>e.type==='note_on').length, events: allTrackEvents.treble }
+                }
             };
             const blob=new Blob([JSON.stringify(data,null,2)], {type:"application/json"});
             const url=URL.createObjectURL(blob);
             const a=document.createElement('a');
-            a.href=url; a.download=`${currentFileName.replace(/\.[^/.]+$/,"")}_multiband.json`;
+            a.href=url; a.download=`${currentFileName.replace(/\.[^/.]+$/,"")}_piano_tracks.json`;
             document.body.appendChild(a); a.click();
             setTimeout(()=>{ document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
             setStatus("导出JSON完成");
@@ -951,35 +915,27 @@
             if(!currentAudioBuffer){ setStatus("请先上传音频", true); return; }
             const fftSize = currentFFTSize;
             const hopSize = currentHopSize;
-            setStatus(`🔬 多频段多峰值分析中: FFT ${fftSize}点 | 各频段独立峰值...`);
+            setStatus(`🎹 三频段分析中: FFT ${fftSize}点 | 分离低音/中音/高音 | 可随时调整频段开关...`);
             analyzeBtn.disabled=true;
             downloadMidiBtn.disabled=true;
             exportJsonBtn.disabled=true;
             await new Promise(r=>setTimeout(r, 30));
             try{
-                const rawFrames = extractAllBandFrames(currentAudioBuffer, fftSize, hopSize);
-                
-                // 收集所有音轨
-                allTrackEvents = [];
-                trackMetadata = [];
-                for(let [bandKey, band] of Object.entries(BANDS)) {
-                    if(!band.toggle.checked) continue;
-                    const peakCount = Math.min(5, Math.max(1, parseInt(band.peaksInput.value) || 2));
-                    for(let p = 0; p < peakCount; p++) {
-                        const events = framesToEventsForPeak(rawFrames, bandKey, p);
-                        if(events.length > 0) {
-                            allTrackEvents.push(events);
-                            trackMetadata.push({ bandKey, bandName: band.name, peakIndex: p });
-                        }
-                    }
-                }
-                
-                currentTrackIndex = 0;
-                updateTrackTabs();
+                const rawFrames = extractTriBandFrames(currentAudioBuffer, fftSize, hopSize);
+                allTrackEvents = {
+                    bass: framesToEvents(rawFrames, 'bass'),
+                    mid: framesToEvents(rawFrames, 'mid'),
+                    treble: framesToEvents(rawFrames, 'treble')
+                };
+                analysisDone = true;
                 updateDisplay();
                 downloadMidiBtn.disabled=false;
                 exportJsonBtn.disabled=false;
-                setStatus(`✅ 分析完成! 生成 ${trackMetadata.length} 个独立音轨 | 低音${BANDS.bass.toggle.checked ? parseInt(bassPeaksInput.value)+'峰' : '禁用'} | 中音${BANDS.mid.toggle.checked ? parseInt(midPeaksInput.value)+'峰' : '禁用'} | 高音${BANDS.treble.toggle.checked ? parseInt(treblePeaksInput.value)+'峰' : '禁用'}`);
+                const enabledCount = Object.keys(BANDS).filter(k => BANDS[k].toggle.checked).length;
+                const totalNotes = (BANDS.bass.toggle.checked ? allTrackEvents.bass.filter(e=>e.type==='note_on').length : 0) +
+                                  (BANDS.mid.toggle.checked ? allTrackEvents.mid.filter(e=>e.type==='note_on').length : 0) +
+                                  (BANDS.treble.toggle.checked ? allTrackEvents.treble.filter(e=>e.type==='note_on').length : 0);
+                setStatus(`✅ 分析完成! 启用频段: ${enabledCount}个 | 总计${totalNotes}音符 | 可调整开关后重新下载MIDI`);
             } catch(e){ 
                 setStatus("分析错误:" + e.message, true); 
                 midiDisplayPre.innerText = "分析失败: " + e.message;
@@ -1001,14 +957,13 @@
                 durationSpan.innerText = `时长: ${audioBuf.duration.toFixed(2)}秒`;
                 sampleRateSpan.innerText = `🔊 采样率: ${audioBuf.sampleRate} Hz`;
                 drawWaveform(audioBuf.getChannelData(0));
-                setStatus(`🎵 多频段引擎就绪 | ${audioBuf.sampleRate}Hz | FFT ${currentFFTSize}点 | 可独立设置各频段峰值数量`);
+                setStatus(`🎹 三钢琴音轨引擎就绪 | ${audioBuf.sampleRate}Hz | FFT ${currentFFTSize}点 | 可独立开关各频段`);
                 analyzeBtn.disabled=false;
                 downloadMidiBtn.disabled=true;
                 exportJsonBtn.disabled=true;
-                allTrackEvents = [];
-                trackMetadata = [];
-                midiDisplayPre.innerText = `点击「多频段多峰值分析」- 每个频段可独立设置峰值数量(1-5)，每个峰值生成独立MIDI音轨，完美保留和弦与层次。`;
-                updateTrackTabs();
+                allTrackEvents = { bass: [], mid: [], treble: [] };
+                analysisDone = false;
+                midiDisplayPre.innerText = `点击「三频段分析」- 可独立启用/禁用低音(65-250Hz)、中音(250-2000Hz)、高音(2000-8000Hz)频段，只生成需要的钢琴音轨。`;
                 updateCardVisuals();
             } catch(e){ 
                 setStatus("解码失败:" + e.message, true); 
@@ -1016,6 +971,21 @@
                 analyzeBtn.disabled=true;
             }
         }
+        
+        // 标签切换
+        document.querySelectorAll('.track-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                const track = tab.dataset.track;
+                if(!BANDS[track].toggle.checked) {
+                    setStatus(`⚠️ ${BANDS[track].name} 已禁用，如需查看请先启用该频段`, false);
+                    return;
+                }
+                document.querySelectorAll('.track-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                currentTrackView = track;
+                updateDisplay();
+            });
+        });
         
         fileInput.addEventListener('change', e=>{ if(e.target.files[0]) loadAudio(e.target.files[0]); });
         uploadZone.addEventListener('click',()=>fileInput.click());
@@ -1027,7 +997,7 @@
         exportJsonBtn.addEventListener('click',exportJSON);
         
         updateCardVisuals();
-        setStatus("🎵 多频段多峰值MIDI合成器已启动 | 每个频段独立开关+独立峰值数量 | 上传音频开始分析");
+        setStatus("🎹 三频段钢琴MIDI合成器已启动 | 可独立开关低音/中音/高音频段 | 上传音频开始分析");
     })();
 </script>
 </body>
