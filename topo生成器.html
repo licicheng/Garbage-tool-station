@@ -1,0 +1,1075 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+  <title>TOTP 2FA 认证码生成器</title>
+  <!-- 轻量级 QR 库 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #f0f2f5;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      min-height: 100vh;
+      margin: 20px;
+      color: #1e293b;
+    }
+    .app-card {
+      max-width: 760px;
+      width: 100%;
+      background: #ffffff;
+      border-radius: 32px;
+      padding: 28px 24px 30px;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.07);
+    }
+    .app-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 22px;
+      border-bottom: 1px solid #eef2f6;
+      padding-bottom: 16px;
+    }
+    .app-header h1 {
+      font-size: 1.6rem;
+      font-weight: 600;
+      letter-spacing: -0.3px;
+      color: #0f172a;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .app-header h1 small { font-size: 0.85rem; font-weight: 400; color: #64748b; margin-left: 6px; }
+    .badge-status {
+      background: #e9edf2;
+      padding: 4px 14px;
+      border-radius: 30px;
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: #334155;
+    }
+    .config-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px 20px;
+      background: #f8fafc;
+      padding: 18px 16px;
+      border-radius: 24px;
+      margin-bottom: 22px;
+      border: 1px solid #eef2f6;
+    }
+    .config-item {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .config-item label {
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      color: #64748b;
+    }
+    .config-item input, .config-item select {
+      padding: 8px 12px;
+      border: 1px solid #dce1e9;
+      border-radius: 14px;
+      background: white;
+      font-size: 0.9rem;
+      transition: 0.15s;
+      color: #0b1a2e;
+    }
+    .config-item input:focus, .config-item select:focus {
+      outline: 2px solid #2563eb;
+      border-color: transparent;
+      box-shadow: 0 0 0 3px rgba(37,99,235,0.12);
+    }
+    .config-item select { cursor: pointer; }
+    .secret-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 6px;
+      flex-wrap: wrap;
+    }
+    .btn-sm {
+      background: white;
+      border: 1px solid #dce1e9;
+      padding: 5px 14px;
+      border-radius: 30px;
+      font-size: 0.75rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: 0.1s;
+      color: #1e293b;
+      background: #f1f4f9;
+    }
+    .btn-sm:hover { background: #e6eaef; }
+    .otp-panel {
+      background: #fafcff;
+      border-radius: 24px;
+      padding: 22px 16px 18px;
+      margin: 10px 0 18px;
+      border: 1px solid #eef2f6;
+      text-align: center;
+    }
+    .otp-row {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 20px 30px;
+      flex-wrap: wrap;
+    }
+    .otp-block {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .otp-label {
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #94a3b8;
+      font-weight: 600;
+    }
+    .otp-value {
+      font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+      font-weight: 600;
+      font-size: 2.2rem;
+      letter-spacing: 4px;
+      color: #0f172a;
+      background: white;
+      padding: 4px 12px;
+      border-radius: 16px;
+      min-width: 120px;
+      border: 1px solid #e9edf2;
+      margin-top: 4px;
+    }
+    .otp-value.current {
+      font-size: 3rem;
+      background: #f1f5f9;
+      border-color: #cbd5e1;
+      min-width: 160px;
+    }
+    .otp-value.error {
+      color: #dc2626;
+      background: #fef2f2;
+      border-color: #fca5a5;
+    }
+    .progress-area { margin: 16px 0 8px; }
+    .progress-track {
+      background: #e2e8f0;
+      border-radius: 40px;
+      height: 6px;
+      overflow: hidden;
+      width: 100%;
+    }
+    .progress-fill {
+      height: 100%;
+      width: 100%;
+      background: #2563eb;
+      border-radius: 40px;
+      transition: width 0.1s linear;
+    }
+    .meta-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.8rem;
+      color: #475569;
+      margin-top: 8px;
+      flex-wrap: wrap;
+    }
+    .next-preview {
+      background: #f1f5f9;
+      padding: 2px 14px;
+      border-radius: 30px;
+      font-family: monospace;
+      font-size: 0.9rem;
+    }
+    .uri-qr-section {
+      margin: 18px 0 8px;
+      background: #fafcff;
+      border-radius: 24px;
+      padding: 16px 14px 14px;
+      border: 1px dashed #dce1e9;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 16px 20px;
+    }
+    .qr-box {
+      flex: 0 0 110px;
+      display: flex;
+      justify-content: center;
+      position: relative;
+      min-height: 110px;
+      align-items: center;
+    }
+    .qr-box img {
+      background: white;
+      padding: 6px;
+      border-radius: 16px;
+      max-width: 110px;
+      height: auto;
+      border: 1px solid #eef2f6;
+      display: block;
+    }
+    .qr-box .qr-placeholder {
+      color: #94a3b8;
+      font-size: 0.7rem;
+      text-align: center;
+    }
+    .qr-upload-overlay {
+      position: absolute;
+      bottom: 4px;
+      right: 4px;
+      background: #2563eb;
+      color: white;
+      border-radius: 30px;
+      padding: 2px 10px;
+      font-size: 0.6rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      box-shadow: 0 2px 8px rgba(37,99,235,0.25);
+      opacity: 0.9;
+    }
+    .qr-upload-overlay:hover { opacity: 1; }
+    #qrFileInput { display: none; }
+    .uri-box {
+      flex: 1;
+      min-width: 160px;
+    }
+    .uri-box .label-sm {
+      font-size: 0.6rem;
+      font-weight: 600;
+      color: #94a3b8;
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
+    }
+    .uri-box .uri-text {
+      font-size: 0.7rem;
+      word-break: break-all;
+      background: #f1f5f9;
+      padding: 6px 12px;
+      border-radius: 30px;
+      font-family: 'SF Mono', monospace;
+      color: #334155;
+      margin-top: 4px;
+      cursor: pointer;
+      border: 1px solid #e9edf2;
+    }
+    .action-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 18px;
+    }
+    .btn {
+      background: white;
+      border: 1px solid #dce1e9;
+      padding: 10px 18px;
+      border-radius: 40px;
+      font-weight: 500;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: 0.15s;
+      flex: 1 0 auto;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      background: #f8fafc;
+      color: #1e293b;
+    }
+    .btn-primary {
+      background: #2563eb;
+      border-color: #2563eb;
+      color: white;
+      box-shadow: 0 4px 8px rgba(37,99,235,0.12);
+    }
+    .btn-primary:hover { background: #1d4ed8; }
+    .btn-outline {
+      background: transparent;
+      border: 1px solid #cbd5e1;
+    }
+    .btn-outline:hover { background: #eef2f6; }
+    .footer-info {
+      margin-top: 24px;
+      border-top: 1px solid #eef2f6;
+      padding-top: 16px;
+      font-size: 0.7rem;
+      color: #94a3b8;
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+    }
+    .encoding-hint {
+      font-size: 0.65rem;
+      color: #64748b;
+      margin-left: 4px;
+    }
+  </style>
+</head>
+<body>
+<div class="app-card" id="app">
+  <!-- 头部 -->
+  <div class="app-header">
+    <h1><span>🔐 TOTP 2FA</span><small>生成器</small></h1>
+    <span class="badge-status" id="statusBadge">⚡ 就绪</span>
+  </div>
+
+  <!-- 配置区域 -->
+  <div class="config-grid">
+    <div class="config-item">
+      <label>密钥格式</label>
+      <select id="encodingType">
+        <option value="base32" selected>Base32</option>
+        <option value="base64">Base64</option>
+      </select>
+    </div>
+    <div class="config-item">
+      <label>密钥 <span class="encoding-hint" id="secretHint">(Base32)</span></label>
+      <input type="text" id="secretInput" value="GU7LWB2BUOWV43RYLU6" placeholder="密钥">
+    </div>
+    <div class="config-item">
+      <label>算法</label>
+      <select id="algorithmSelect">
+        <option value="SHA1" selected>SHA1</option>
+        <option value="SHA256">SHA256</option>
+        <option value="SHA512">SHA512</option>
+      </select>
+    </div>
+    <div class="config-item">
+      <label>位数 (1-64)</label>
+      <input type="number" id="digitsInput" value="6" min="1" max="64" step="1">
+    </div>
+    <div class="config-item">
+      <label>周期 (秒)</label>
+      <input type="number" id="periodInput" value="30" min="1" max="3600" step="1">
+    </div>
+    <div class="config-item">
+      <label>签发方</label>
+      <input type="text" id="issuerInput" value="Example" placeholder="Issuer">
+    </div>
+    <div class="config-item" style="grid-column: 1 / -1;">
+      <div class="secret-actions">
+        <button class="btn-sm" id="generateSecretBtn">🎲 生成</button>
+        <button class="btn-sm" id="verifySecretBtn">✔️ 校验</button>
+        <button class="btn-sm" id="downloadBtn">⬇️ 下载</button>
+        <button class="btn-sm" id="clearBtn">🗑️ 清空</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOTP 结果显示 -->
+  <div class="otp-panel">
+    <div class="otp-row">
+      <div class="otp-block">
+        <span class="otp-label">上一个</span>
+        <span class="otp-value" id="prevOtp">------</span>
+      </div>
+      <div class="otp-block">
+        <span class="otp-label">当前 OTP</span>
+        <span class="otp-value current" id="currentOtp">------</span>
+      </div>
+      <div class="otp-block">
+        <span class="otp-label">下一个</span>
+        <span class="otp-value" id="nextOtp">------</span>
+      </div>
+    </div>
+    <div class="progress-area">
+      <div class="progress-track">
+        <div class="progress-fill" id="progressFill" style="width: 100%;"></div>
+      </div>
+      <div class="meta-row">
+        <span id="timeLeftDisplay">⏱️ 28秒后刷新</span>
+        <span class="next-preview" id="nextPreview">下一个: ——</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOTP Key URI + 二维码 -->
+  <div class="uri-qr-section">
+    <div class="qr-box">
+      <img id="qrImage" src="" alt="QR码" style="display: none;">
+      <span class="qr-placeholder" id="qrPlaceholder">📱 二维码</span>
+      <button class="qr-upload-overlay" id="qrUploadBtn">📂 上传</button>
+      <input type="file" id="qrFileInput" accept="image/*">
+    </div>
+    <div class="uri-box">
+      <div class="label-sm">TOTP Key URI <span style="font-weight:400;color:#94a3b8;">(密钥统一Base32)</span></div>
+      <div class="uri-text" id="uriDisplay">(点击生成链接)</div>
+    </div>
+  </div>
+
+  <!-- 操作按钮 -->
+  <div class="action-bar">
+    <button class="btn btn-primary" id="refreshBtn">🔄 刷新码</button>
+    <button class="btn btn-outline" id="decodeBtn">📥 解码 otpauth</button>
+    <button class="btn btn-outline" id="genUriBtn">🔗 生成链接 & 二维码</button>
+  </div>
+
+  <div class="footer-info">
+    <span>🔑 SHA1 / SHA256 / SHA512 · Base32 / Base64</span>
+    <span id="extraStatus">⏳ 动态验证码 API</span>
+  </div>
+</div>
+
+<script>
+  (function(){
+    "use strict";
+
+    // DOM 引用
+    const secretInput = document.getElementById('secretInput');
+    const encodingType = document.getElementById('encodingType');
+    const algorithmSelect = document.getElementById('algorithmSelect');
+    const digitsInput = document.getElementById('digitsInput');
+    const periodInput = document.getElementById('periodInput');
+    const issuerInput = document.getElementById('issuerInput');
+    const secretHint = document.getElementById('secretHint');
+    
+    const currentOtpEl = document.getElementById('currentOtp');
+    const prevOtpEl = document.getElementById('prevOtp');
+    const nextOtpEl = document.getElementById('nextOtp');
+    const progressFill = document.getElementById('progressFill');
+    const timeLeftDisplay = document.getElementById('timeLeftDisplay');
+    const nextPreview = document.getElementById('nextPreview');
+    const qrImage = document.getElementById('qrImage');
+    const qrPlaceholder = document.getElementById('qrPlaceholder');
+    const uriDisplay = document.getElementById('uriDisplay');
+    const statusBadge = document.getElementById('statusBadge');
+    const extraStatus = document.getElementById('extraStatus');
+    const qrFileInput = document.getElementById('qrFileInput');
+    const qrUploadBtn = document.getElementById('qrUploadBtn');
+
+    // 按钮
+    const refreshBtn = document.getElementById('refreshBtn');
+    const decodeBtn = document.getElementById('decodeBtn');
+    const genUriBtn = document.getElementById('genUriBtn');
+    const generateSecretBtn = document.getElementById('generateSecretBtn');
+    const verifySecretBtn = document.getElementById('verifySecretBtn');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const clearBtn = document.getElementById('clearBtn');
+
+    // 状态
+    let animationFrameId = null;
+    let lastUpdateTime = 0;
+    let currentPeriod = 30;
+    let currentDigits = 6;
+    let currentAlgorithm = 'SHA1';
+    let currentIssuer = 'Example';
+    let currentEncoding = 'base32';
+    let isUpdating = false;
+
+    // 更新密钥格式提示
+    encodingType.addEventListener('change', function() {
+      const val = this.value;
+      secretHint.textContent = val === 'base32' ? '(Base32)' : '(Base64)';
+      // 如果当前密钥不符合新格式，自动转换
+      const secret = secretInput.value.trim();
+      if (secret) {
+        try {
+          // 尝试解码当前密钥
+          let bytes;
+          if (val === 'base32') {
+            bytes = base32ToBytes(secret);
+          } else {
+            bytes = base64ToBytes(secret);
+          }
+          // 重新编码为新格式
+          const newSecret = encodeSecret(bytes, val);
+          secretInput.value = newSecret;
+        } catch(e) {
+          // 转换失败，保持原样
+        }
+      }
+      updateOtp(true).then(() => generateUriAndQR());
+    });
+
+    // ---------- 编解码工具 ----------
+    function decodeSecret(secret, encoding) {
+      if (encoding === 'base32') {
+        return base32ToBytes(secret);
+      } else if (encoding === 'base64') {
+        return base64ToBytes(secret);
+      }
+      throw new Error('不支持的编码格式');
+    }
+
+    function base32ToBytes(base32) {
+      const sanitized = base32.replace(/=+$/, '').toUpperCase();
+      const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+      let bits = 0, value = 0;
+      const bytes = [];
+      for (let i = 0; i < sanitized.length; i++) {
+        const idx = alphabet.indexOf(sanitized[i]);
+        if (idx === -1) {
+          throw new Error('无效Base32字符: ' + sanitized[i]);
+        }
+        value = (value << 5) | idx;
+        bits += 5;
+        if (bits >= 8) {
+          bits -= 8;
+          bytes.push((value >> bits) & 0xFF);
+          value &= (1 << bits) - 1;
+        }
+      }
+      return new Uint8Array(bytes);
+    }
+
+    function base64ToBytes(base64) {
+      try {
+        const binary = atob(base64);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) {
+          bytes[i] = binary.charCodeAt(i);
+        }
+        return bytes;
+      } catch(e) {
+        throw new Error('无效的Base64格式');
+      }
+    }
+
+    function bytesToBase32(bytes) {
+      const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+      let bits = 0;
+      let value = 0;
+      let output = '';
+      for (let i = 0; i < bytes.length; i++) {
+        value = (value << 8) | bytes[i];
+        bits += 8;
+        while (bits >= 5) {
+          bits -= 5;
+          output += alphabet[(value >> bits) & 31];
+          value &= (1 << bits) - 1;
+        }
+      }
+      if (bits > 0) {
+        output += alphabet[(value << (5 - bits)) & 31];
+      }
+      return output;
+    }
+
+    function bytesToBase64(bytes) {
+      let binary = '';
+      for (let i = 0; i < bytes.length; i++) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      return btoa(binary);
+    }
+
+    function encodeSecret(bytes, encoding) {
+      if (encoding === 'base32') {
+        return bytesToBase32(bytes);
+      } else if (encoding === 'base64') {
+        return bytesToBase64(bytes);
+      }
+      throw new Error('不支持的编码格式');
+    }
+
+    // ---------- 核心：确保密钥转为Base32用于URI ----------
+    function getSecretBytesForUri(secret, encoding) {
+      try {
+        return decodeSecret(secret, encoding);
+      } catch(e) {
+        throw new Error('密钥解码失败: ' + e.message);
+      }
+    }
+
+    // 封装：生成URI时强制使用Base32格式的密钥
+    function buildUriWithBase32Secret(issuer, account, secret, encoding, algorithm, digits, period) {
+      // 1. 解码密钥为字节
+      const bytes = getSecretBytesForUri(secret, encoding);
+      // 2. 重新编码为Base32 (RFC 4648 标准)
+      const base32Secret = bytesToBase32(bytes);
+      // 3. 构建URI
+      return `otpauth://totp/${encodeURIComponent(issuer)}:${encodeURIComponent(account)}?secret=${base32Secret}&issuer=${encodeURIComponent(issuer)}&algorithm=${algorithm}&digits=${digits}&period=${period}`;
+    }
+
+    // 兼容旧版本：解码时自动检测编码
+    function decodeSecretAuto(secret) {
+      // 检测编码
+      let encoding = 'base32';
+      if (/[+/=]/.test(secret) || !/^[A-Z2-7]+$/.test(secret.replace(/=+$/, ''))) {
+        encoding = 'base64';
+      }
+      return { bytes: decodeSecret(secret, encoding), encoding };
+    }
+
+    // ---------- HMAC 和 TOTP ----------
+    async function hmacSha(algorithm, keyBytes, counterBytes) {
+      const map = { 'SHA1':'SHA-1', 'SHA256':'SHA-256', 'SHA512':'SHA-512' };
+      const algo = map[algorithm] || 'SHA-1';
+      try {
+        const cryptoKey = await crypto.subtle.importKey('raw', keyBytes, { name:'HMAC', hash:{ name:algo } }, false, ['sign']);
+        const sig = await crypto.subtle.sign('HMAC', cryptoKey, counterBytes);
+        return new Uint8Array(sig);
+      } catch(e) {
+        throw e;
+      }
+    }
+
+    function dynamicTruncate(hash, digits) {
+      const offset = hash[hash.length-1] & 0xF;
+      const binary = ((hash[offset] & 0x7F) << 24) | ((hash[offset+1] & 0xFF) << 16) | ((hash[offset+2] & 0xFF) << 8) | (hash[offset+3] & 0xFF);
+      const otp = binary % Math.pow(10, digits);
+      return otp.toString().padStart(digits, '0');
+    }
+
+    async function generateTOTP(secret, encoding, algorithm, digits, period, time = null) {
+      const timestamp = time || Date.now()/1000;
+      
+      try {
+        const bytes = decodeSecret(secret, encoding);
+        const counter = Math.floor(timestamp / period);
+        const counterBytes = new Uint8Array(8);
+        let c = counter;
+        for (let i = 7; i >= 0; i--) { 
+          counterBytes[i] = c & 0xFF; 
+          c >>= 8; 
+        }
+        
+        const hash = await hmacSha(algorithm, bytes, counterBytes);
+        return dynamicTruncate(hash, digits);
+      } catch(e) {
+        return 'ERROR';
+      }
+    }
+
+    // ---------- 核心同步更新函数 ----------
+    async function updateOtp(force = false) {
+      if (isUpdating && !force) return;
+      isUpdating = true;
+      
+      const secret = secretInput.value.trim();
+      const encoding = encodingType.value;
+      const algorithm = algorithmSelect.value;
+      const digits = Math.min(Math.max(parseInt(digitsInput.value, 10) || 6, 1), 64);
+      const period = Math.min(Math.max(parseInt(periodInput.value, 10) || 30, 1), 3600);
+      const issuer = issuerInput.value.trim() || 'Example';
+
+      currentEncoding = encoding;
+      currentAlgorithm = algorithm;
+      currentDigits = digits;
+      currentPeriod = period;
+      currentIssuer = issuer;
+
+      if (parseInt(digitsInput.value) !== digits) digitsInput.value = digits;
+      if (parseInt(periodInput.value) !== period) periodInput.value = period;
+
+      const now = Date.now() / 1000;
+      const elapsed = now % period;
+      const remaining = period - elapsed;
+      
+      const percent = (remaining / period) * 100;
+      progressFill.style.width = percent + '%';
+      timeLeftDisplay.textContent = `⏱️ ${Math.ceil(remaining)}秒后刷新`;
+      
+      if (!secret) {
+        currentOtpEl.textContent = '⚠️ 无密钥';
+        currentOtpEl.className = 'otp-value current error';
+        prevOtpEl.textContent = '------';
+        nextOtpEl.textContent = '------';
+        nextPreview.textContent = '下一个: ——';
+        statusBadge.textContent = '⚠️ 无密钥';
+        isUpdating = false;
+        return;
+      }
+      
+      try { 
+        decodeSecret(secret, encoding);
+      } catch(e) {
+        currentOtpEl.textContent = '❌ 格式错误';
+        currentOtpEl.className = 'otp-value current error';
+        prevOtpEl.textContent = '------';
+        nextOtpEl.textContent = '------';
+        nextPreview.textContent = '下一个: ——';
+        statusBadge.textContent = '❌ 格式错误';
+        isUpdating = false;
+        return;
+      }
+
+      try {
+        const [prev, current, next] = await Promise.all([
+          generateTOTP(secret, encoding, algorithm, digits, period, now - period),
+          generateTOTP(secret, encoding, algorithm, digits, period, now),
+          generateTOTP(secret, encoding, algorithm, digits, period, now + period)
+        ]);
+
+        currentOtpEl.textContent = current;
+        currentOtpEl.className = 'otp-value current';
+        prevOtpEl.textContent = prev;
+        nextOtpEl.textContent = next;
+        nextPreview.textContent = `下一个: ${next}`;
+
+        statusBadge.textContent = `⚡ T+${Math.floor(elapsed)}s`;
+        extraStatus.textContent = `⏳ ${algorithm} · ${digits}位 · ${period}s`;
+        
+        lastUpdateTime = now;
+      } catch(e) {
+        currentOtpEl.textContent = 'ERROR';
+        currentOtpEl.className = 'otp-value current error';
+      }
+      
+      isUpdating = false;
+    }
+
+    // ---------- 动画循环 ----------
+    function animationLoop() {
+      const secret = secretInput.value.trim();
+      if (secret) {
+        const period = Math.min(Math.max(parseInt(periodInput.value, 10) || 30, 1), 3600);
+        const now = Date.now() / 1000;
+        const elapsed = now % period;
+        const remaining = period - elapsed;
+        const percent = (remaining / period) * 100;
+        
+        progressFill.style.width = percent + '%';
+        timeLeftDisplay.textContent = `⏱️ ${Math.ceil(remaining)}秒后刷新`;
+        
+        if (remaining < 0.1 || remaining > period - 0.1) {
+          if (!isUpdating) {
+            updateOtp(true);
+          }
+        } else if (Math.floor(now) !== Math.floor(lastUpdateTime) && !isUpdating) {
+          const currentCounter = Math.floor(now / period);
+          const lastCounter = Math.floor(lastUpdateTime / period);
+          if (currentCounter !== lastCounter) {
+            updateOtp(true);
+          }
+        }
+      }
+      
+      animationFrameId = requestAnimationFrame(animationLoop);
+    }
+
+    // ---------- 生成二维码 (使用Base32封装的URI) ----------
+    function generateUriAndQR() {
+      const secret = secretInput.value.trim();
+      const encoding = encodingType.value;
+      const algorithm = algorithmSelect.value;
+      const digits = parseInt(digitsInput.value, 10) || 6;
+      const period = parseInt(periodInput.value, 10) || 30;
+      const issuer = issuerInput.value.trim() || 'Example';
+      const account = 'user';
+      
+      if (!secret) { 
+        alert('请填写密钥'); 
+        return; 
+      }
+      
+      let uri;
+      try {
+        // 使用封装函数，强制输出Base32格式的密钥
+        uri = buildUriWithBase32Secret(issuer, account, secret, encoding, algorithm, digits, period);
+      } catch(e) {
+        alert('密钥格式错误: ' + e.message); 
+        return; 
+      }
+
+      uriDisplay.textContent = uri;
+
+      // 生成二维码
+      try {
+        const container = document.createElement('div');
+        container.id = 'qrTempContainer';
+        container.style.position = 'absolute';
+        container.style.left = '-9999px';
+        container.style.top = '-9999px';
+        document.body.appendChild(container);
+        
+        new QRCode(container, {
+          text: uri,
+          width: 110,
+          height: 110,
+          colorDark: '#0f172a',
+          colorLight: '#ffffff',
+          correctLevel: QRCode.CorrectLevel.H
+        });
+        
+        const qrElement = container.querySelector('canvas') || container.querySelector('img');
+        if (qrElement) {
+          const dataUrl = qrElement.toDataURL ? qrElement.toDataURL('image/png') : qrElement.src;
+          qrImage.src = dataUrl;
+          qrImage.style.display = 'block';
+          qrPlaceholder.style.display = 'none';
+        } else {
+          const canvas = document.createElement('canvas');
+          canvas.width = 110;
+          canvas.height = 110;
+          const qr = new QRCode(canvas, {
+            text: uri,
+            width: 110,
+            height: 110,
+            colorDark: '#0f172a',
+            colorLight: '#ffffff',
+            correctLevel: QRCode.CorrectLevel.H
+          });
+          qrImage.src = canvas.toDataURL('image/png');
+          qrImage.style.display = 'block';
+          qrPlaceholder.style.display = 'none';
+        }
+        
+        document.body.removeChild(container);
+      } catch(e) {
+        console.warn('QR生成失败，使用备用方案', e);
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = 110;
+          canvas.height = 110;
+          const qr = new QRCode(canvas, {
+            text: uri,
+            width: 110,
+            height: 110,
+            colorDark: '#0f172a',
+            colorLight: '#ffffff',
+            correctLevel: QRCode.CorrectLevel.H
+          });
+          qrImage.src = canvas.toDataURL('image/png');
+          qrImage.style.display = 'block';
+          qrPlaceholder.style.display = 'none';
+        } catch(e2) {
+          alert('二维码生成失败，请检查控制台错误');
+        }
+      }
+    }
+
+    // ---------- 解码 otpauth ----------
+    function decodeOtpauth(uri) {
+      try {
+        const url = new URL(uri);
+        if (url.protocol !== 'otpauth:') throw new Error('不是otpauth链接');
+        
+        const params = new URLSearchParams(url.search);
+        let secret = params.get('secret') || '';
+        if (!secret) throw new Error('未找到密钥');
+        
+        const issuer = params.get('issuer') || 'Example';
+        const algorithm = params.get('algorithm') || 'SHA1';
+        const digits = parseInt(params.get('digits') || '6', 10);
+        const period = parseInt(params.get('period') || '30', 10);
+        
+        // 检测编码
+        let encoding = 'base32';
+        if (/[+/=]/.test(secret) || !/^[A-Z2-7]+$/.test(secret.replace(/=+$/, ''))) {
+          encoding = 'base64';
+        }
+
+        // 验证密钥是否有效
+        try {
+          decodeSecret(secret, encoding);
+        } catch(e) {
+          // 尝试另一种编码
+          const altEncoding = encoding === 'base32' ? 'base64' : 'base32';
+          try {
+            decodeSecret(secret, altEncoding);
+            encoding = altEncoding;
+          } catch(e2) {
+            throw new Error('无法识别的密钥编码');
+          }
+        }
+
+        secretInput.value = secret;
+        encodingType.value = encoding;
+        secretHint.textContent = encoding === 'base32' ? '(Base32)' : '(Base64)';
+        algorithmSelect.value = algorithm.toUpperCase();
+        digitsInput.value = Math.min(Math.max(digits, 1), 64);
+        periodInput.value = Math.min(Math.max(period, 1), 3600);
+        issuerInput.value = issuer;
+
+        updateOtp(true).then(() => {
+          generateUriAndQR();
+        });
+        
+        statusBadge.textContent = '✅ 解码成功';
+        setTimeout(() => statusBadge.textContent = '⚡ 就绪', 1500);
+      } catch(e) {
+        alert('解码失败: ' + e.message);
+      }
+    }
+
+    function handleDecode() {
+      const input = prompt('请输入 Base32/Base64 密钥或 otpauth:// 链接', 'otpauth://totp/Example:user?secret=GU7LWB2BUOWV43RYLU6&issuer=Example&algorithm=SHA1&digits=6&period=30');
+      if (!input) return;
+      if (input.startsWith('otpauth://')) {
+        decodeOtpauth(input);
+      } else {
+        secretInput.value = input.trim();
+        updateOtp(true).then(() => {
+          generateUriAndQR();
+        });
+      }
+    }
+
+    // ---------- 二维码识别 ----------
+    function decodeQRFromImage(file) {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const img = new Image();
+        img.onload = function() {
+          try {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0);
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            
+            const code = jsQR(imageData.data, imageData.width, imageData.height);
+            if (code && code.data) {
+              const decodedUri = code.data;
+              if (decodedUri.startsWith('otpauth://')) {
+                decodeOtpauth(decodedUri);
+                statusBadge.textContent = '📷 识别成功';
+                setTimeout(() => statusBadge.textContent = '⚡ 就绪', 1500);
+              } else {
+                alert('识别内容不是有效的 otpauth 链接');
+              }
+            } else {
+              alert('未识别到二维码，请确认图片清晰');
+            }
+          } catch(err) {
+            alert('识别失败: ' + err.message);
+          }
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    qrUploadBtn.addEventListener('click', function() {
+      qrFileInput.click();
+    });
+    qrFileInput.addEventListener('change', function(e) {
+      if (this.files && this.files[0]) {
+        decodeQRFromImage(this.files[0]);
+      }
+      this.value = '';
+    });
+
+    // ---------- 辅助按钮 ----------
+    function generateRandomSecret() {
+      const encoding = encodingType.value;
+      const bytes = crypto.getRandomValues(new Uint8Array(20));
+      const secret = encodeSecret(bytes, encoding);
+      secretInput.value = secret;
+      updateOtp(true).then(() => {
+        generateUriAndQR();
+      });
+    }
+
+    function verifySecret() {
+      const secret = secretInput.value.trim();
+      const encoding = encodingType.value;
+      if (!secret) { alert('请输入密钥'); return; }
+      try {
+        decodeSecret(secret, encoding);
+        alert(`✅ 密钥格式有效 (${encoding})`);
+      } catch(e) {
+        alert(`❌ 无效的密钥: ${e.message}`);
+      }
+    }
+
+    function downloadConfig() {
+      const secret = secretInput.value.trim();
+      if (!secret) { alert('无密钥可下载'); return; }
+      const data = {
+        secret, 
+        encoding: encodingType.value,
+        algorithm: algorithmSelect.value, 
+        digits: parseInt(digitsInput.value, 10) || 6,
+        period: parseInt(periodInput.value, 10) || 30,
+        issuer: issuerInput.value.trim() || 'Example'
+      };
+      const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'totp_config.json';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+
+    function clearAll() {
+      secretInput.value = '';
+      currentOtpEl.textContent = '------';
+      currentOtpEl.className = 'otp-value current';
+      prevOtpEl.textContent = '------';
+      nextOtpEl.textContent = '------';
+      progressFill.style.width = '0%';
+      timeLeftDisplay.textContent = '⏱️ 已清空';
+      nextPreview.textContent = '下一个: ——';
+      qrImage.style.display = 'none';
+      qrPlaceholder.style.display = 'inline';
+      uriDisplay.textContent = '(点击生成链接)';
+      statusBadge.textContent = '🧹 已清空';
+    }
+
+    // ---------- 监听配置变化 ----------
+    function setupConfigListeners() {
+      const configElements = [algorithmSelect, digitsInput, periodInput, issuerInput];
+      configElements.forEach(el => {
+        el.addEventListener('change', () => {
+          updateOtp(true).then(() => generateUriAndQR());
+        });
+      });
+
+      digitsInput.addEventListener('input', function() {
+        let val = parseInt(this.value, 10);
+        if (isNaN(val) || val < 1) this.value = 1;
+        if (val > 64) this.value = 64;
+      });
+
+      periodInput.addEventListener('input', function() {
+        let val = parseInt(this.value, 10);
+        if (isNaN(val) || val < 1) this.value = 1;
+        if (val > 3600) this.value = 3600;
+      });
+    }
+
+    // ---------- 初始化 ----------
+    async function init() {
+      await updateOtp(true);
+      generateUriAndQR();
+      setupConfigListeners();
+
+      refreshBtn.addEventListener('click', () => updateOtp(true));
+      decodeBtn.addEventListener('click', handleDecode);
+      genUriBtn.addEventListener('click', generateUriAndQR);
+      generateSecretBtn.addEventListener('click', generateRandomSecret);
+      verifySecretBtn.addEventListener('click', verifySecret);
+      downloadBtn.addEventListener('click', downloadConfig);
+      clearBtn.addEventListener('click', clearAll);
+
+      secretInput.addEventListener('change', async () => {
+        await updateOtp(true);
+        generateUriAndQR();
+      });
+      secretInput.addEventListener('input', async () => {
+        clearTimeout(window._secretInputTimer);
+        window._secretInputTimer = setTimeout(async () => {
+          await updateOtp(true);
+          generateUriAndQR();
+        }, 300);
+      });
+
+      uriDisplay.addEventListener('click', function() {
+        navigator.clipboard?.writeText(this.textContent).then(() => {
+          statusBadge.textContent = '📋 已复制URI';
+          setTimeout(() => statusBadge.textContent = '⚡ 就绪', 1500);
+        }).catch(() => {});
+      });
+
+      animationLoop();
+    }
+
+    if (document.readyState === 'complete') init();
+    else window.addEventListener('load', init);
+  })();
+</script>
+</body>
+</html>
