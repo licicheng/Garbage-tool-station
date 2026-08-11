@@ -1,0 +1,1220 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>密码工具箱 · Crypto Toolbox</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/node-forge@1.3.1/dist/forge.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d1117;--surface:#161b22;--surface2:#1c2333;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--accent:#58a6ff;--accent2:#3fb950;--accent3:#d29922;--accent4:#f85149;--radius:8px;--sidebar-w:240px}
+html,body{height:100%;font-family:-apple-system,'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);overflow:hidden}
+.app{display:flex;height:100vh}
+.sidebar{width:var(--sidebar-w);background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;flex-shrink:0}
+.sidebar-header{padding:16px;border-bottom:1px solid var(--border);text-align:center}
+.sidebar-header h1{font-size:16px;font-weight:700;color:var(--text)}
+.sidebar-header p{font-size:11px;color:var(--text2);margin-top:2px}
+.sidebar-search{padding:8px;border-bottom:1px solid var(--border)}
+.sidebar-search input{width:100%;padding:6px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:12px;outline:none}
+.sidebar-search input:focus{border-color:var(--accent)}
+.sidebar-nav{flex:1;overflow-y:auto;padding:4px 0}
+.sidebar-nav::-webkit-scrollbar{width:4px}
+.sidebar-nav::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.cat-group{margin-bottom:2px}
+.cat-title{padding:6px 16px;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;user-select:none}
+.cat-title:hover{color:var(--text)}
+.cat-title .arrow{font-size:8px;transition:transform .2s}
+.cat-title.collapsed .arrow{transform:rotate(-90deg)}
+.cat-items{overflow:hidden}
+.cat-items.collapsed{display:none}
+.nav-item{padding:7px 16px 7px 20px;font-size:13px;color:var(--text2);cursor:pointer;display:flex;align-items:center;gap:8px;transition:all .15s;border-left:3px solid transparent;position:relative}
+.nav-item:hover{color:var(--text);background:rgba(88,166,255,.05)}
+.nav-item.active{color:var(--accent);background:rgba(88,166,255,.1);border-left-color:var(--accent)}
+.nav-item .icon{font-size:14px;width:20px;text-align:center;flex-shrink:0}
+.nav-item .badge{font-size:9px;background:var(--surface2);padding:1px 5px;border-radius:3px;color:var(--text2);margin-left:auto}
+.content{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.content-header{padding:14px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;flex-shrink:0}
+.content-header h2{font-size:18px;font-weight:600}
+.content-header .desc{font-size:12px;color:var(--text2);margin-top:1px}
+.content-body{flex:1;overflow-y:auto;padding:20px 24px}
+.content-body::-webkit-scrollbar{width:6px}
+.content-body::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+.tool-section{max-width:800px;margin:0 auto}
+.tool-section .field{margin-bottom:12px}
+.tool-section .field label{display:block;font-size:12px;font-weight:500;color:var(--text2);margin-bottom:4px}
+.tool-section textarea,.tool-section input[type="text"],.tool-section input[type="password"],.tool-section select{width:100%;padding:8px 12px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:13px;font-family:'SF Mono','Consolas','Liberation Mono',monospace;outline:none;transition:border-color .15s}
+.tool-section textarea:focus,.tool-section input:focus,.tool-section select:focus{border-color:var(--accent)}
+.tool-section textarea{min-height:80px;resize:vertical;line-height:1.5}
+.tool-section textarea.output{background:var(--bg);cursor:text;user-select:text}
+.tool-section .actions{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 12px}
+.tool-section .btn{padding:7px 18px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:13px;cursor:pointer;transition:all .15s;font-weight:500}
+.tool-section .btn:hover{background:var(--border);border-color:var(--text2)}
+.tool-section .btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.tool-section .btn.primary:hover{filter:brightness(1.15)}
+.tool-section .btn.success{background:var(--accent2);color:#fff;border-color:var(--accent2)}
+.tool-section .btn.success:hover{filter:brightness(1.15)}
+.tool-section .btn.warning{background:var(--accent3);color:#fff;border-color:var(--accent3)}
+.tool-section .btn.warning:hover{filter:brightness(1.15)}
+.tool-section .btn.danger{background:var(--accent4);color:#fff;border-color:var(--accent4)}
+.tool-section .btn.danger:hover{filter:brightness(1.15)}
+.tool-section .btn.small{padding:4px 10px;font-size:11px}
+.tool-section .options-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.tool-section .options-row .field{flex:1;min-width:120px;margin-bottom:0}
+.tool-section .options-row .field label{font-size:11px}
+.tool-section .options-row .field select{font-size:12px;padding:5px 8px}
+.tool-section .keypair-area{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px;margin-bottom:12px}
+.tool-section .keypair-area h4{font-size:12px;color:var(--text2);margin-bottom:6px}
+.tool-section .keypair-area textarea{font-size:11px;min-height:60px;background:var(--bg)}
+.tool-section .copy-btn{position:absolute;top:4px;right:4px;padding:2px 8px;font-size:10px;border-radius:4px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);cursor:pointer;opacity:0;transition:opacity .2s}
+.tool-section .field{position:relative}
+.tool-section .field:hover .copy-btn,.tool-section .field .copy-btn.always{opacity:1}
+.tool-section .info-bar{font-size:11px;color:var(--text2);padding:6px 0 10px;line-height:1.5}
+.tool-section .info-bar code{background:var(--surface2);padding:1px 5px;border-radius:3px;font-size:10px}
+.tool-section .checkbox-row{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.tool-section .checkbox-row label{font-size:12px;color:var(--text2);cursor:pointer}
+.tool-section .checkbox-row input[type="checkbox"]{accent-color:var(--accent);width:16px;height:16px;cursor:pointer}
+.tool-section .status-msg{font-size:12px;padding:6px 10px;border-radius:4px;margin-bottom:10px;display:none}
+.tool-section .status-msg.error{display:block;background:rgba(248,81,73,.15);color:var(--accent4);border:1px solid rgba(248,81,73,.3)}
+.tool-section .status-msg.success{display:block;background:rgba(63,185,80,.15);color:var(--accent2);border:1px solid rgba(63,185,80,.3)}
+.tool-section .status-msg.info{display:block;background:rgba(88,166,255,.15);color:var(--accent);border:1px solid rgba(88,166,255,.3)}
+.tool-section .hash-result{word-break:break-all;font-family:monospace;background:var(--bg);padding:10px 14px;border-radius:6px;border:1px solid var(--border);min-height:36px;font-size:13px;line-height:1.5;user-select:text}
+.tool-section .file-upload{display:flex;gap:8px;align-items:center;margin-bottom:10px}
+.tool-section .file-upload input[type="file"]{font-size:12px;color:var(--text2)}
+.tool-section .file-upload input[type="file"]::file-selector-button{padding:4px 12px;border-radius:4px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;font-size:12px}
+.tool-section .file-upload input[type="file"]::file-selector-button:hover{background:var(--border)}
+@media(max-width:768px){.sidebar{width:60px}.sidebar .nav-item span{display:none}.sidebar .cat-title span{display:none}.sidebar .cat-title .arrow{display:none}.sidebar .sidebar-header h1{font-size:0}.sidebar .sidebar-header p{display:none}.sidebar .sidebar-search{display:none}.sidebar .nav-item .badge{display:none}.content-header{padding:10px 14px}.content-body{padding:14px}}
+</style>
+</head>
+<body>
+<div class="app">
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <h1>🔐 密码工具箱</h1>
+    <p>加密 · 编码 · 哈希 · 签名</p>
+  </div>
+  <div class="sidebar-search"><input type="text" id="searchInput" placeholder="搜索工具..." oninput="filterTools(this.value)"></div>
+  <nav class="sidebar-nav" id="sidebarNav"></nav>
+</aside>
+<main class="content">
+  <div class="content-header" id="contentHeader">
+    <h2 id="toolTitle">编码 · 加密 · 哈希</h2>
+    <span class="desc" id="toolDesc">选择左侧工具开始使用</span>
+  </div>
+  <div class="content-body" id="contentBody">
+    <div class="tool-section" style="text-align:center;padding-top:60px;color:var(--text2)">
+      <div style="font-size:48px;margin-bottom:16px">🔐</div>
+      <h3 style="color:var(--text);margin-bottom:8px">密码工具箱</h3>
+      <p style="font-size:14px;max-width:400px;margin:0 auto;line-height:1.6">
+        从左侧选择工具 · 支持编码/解码、对称/非对称加密、哈希计算等<br>
+        <span style="font-size:12px;color:var(--text2)">纯前端 · 数据不上传服务器</span>
+      </p>
+    </div>
+  </div>
+</main>
+</div>
+<script>
+/* ========================================
+   🔧 工具数据定义
+   ======================================== */
+const TOOLS = {};
+
+function def(id, cfg) { TOOLS[id] = { id, ...cfg }; }
+
+/* ---------- 编码类 ---------- */
+def('base64',{name:'Base64',cat:'encoding',icon:'🔤',desc:'Base64 将二进制数据编码为 64 个可打印字符',render:genEncDec('base64',{key:btoa,unkey:atob})});
+def('base32',{name:'Base32',cat:'encoding',icon:'🔤',desc:'Base32 用 32 个字符编码二进制数据（RFC 4648）',render:genEncDec('base32',{key:v=>base32Encode(v),unkey:v=>base32Decode(v)})});
+def('base58',{name:'Base58',cat:'encoding',icon:'🔤',desc:'Base58 比特币地址编码（去除了易混淆字符）',render:genEncDec('base58',{key:v=>base58Encode(v),unkey:v=>base58Decode(v)})});
+def('base62',{name:'Base62',cat:'encoding',icon:'🔤',desc:'Base62 使用 0-9A-Za-z 编码',render:genEncDec('base62',{key:v=>base62Encode(v),unkey:v=>base62Decode(v)})});
+def('base85',{name:'Base85',cat:'encoding',icon:'🔤',desc:'Base85 / Ascii85 编码（RFC 1924）',render:genEncDec('base85',{key:v=>base85Encode(v),unkey:v=>base85Decode(v)})});
+def('hex',{name:'Hex',cat:'encoding',icon:'🔢',desc:'十六进制编码，每字节转 2 位十六进制',render:genEncDec('hex',{key:v=>bytesToHex(str2bytes(v)),unkey:v=>bytes2str(hexToBytes(v))})});
+def('binary',{name:'Binary',cat:'encoding',icon:'🔢',desc:'二进制编码，将文本转为 0/1 序列',render:genEncDec('binary',{key:v=>str2bytes(v).map(b=>b.toString(2).padStart(8,'0')).join(' '),unkey:v=>bytes2str(v.split(/\\s+/).filter(Boolean).map(b=>parseInt(b,2)))})});
+def('octal',{name:'Octal',cat:'encoding',icon:'🔢',desc:'八进制编码，将文本转为八进制序列',render:genEncDec('octal',{key:v=>str2bytes(v).map(b=>b.toString(8).padStart(3,'0')).join(' '),unkey:v=>bytes2str(v.split(/\\s+/).filter(Boolean).map(b=>parseInt(b,8)))})});
+def('urlenc',{name:'URL Encode',cat:'encoding',icon:'🔗',desc:'URL 百分号编码/解码',render:genEncDec('urlenc',{key:v=>encodeURIComponent(v),unkey:v=>decodeURIComponent(v)})});
+def('htmlent',{name:'HTML Entity',cat:'encoding',icon:'🔣',desc:'HTML 实体编码/解码（转义 < > & " \'）',render:genEncDec('htmlent',{key:v=>v.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'),unkey:v=>v.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#39;/g,"'")})});
+def('unicode',{name:'Unicode Escape',cat:'encoding',icon:'🌐',desc:'Unicode 转义序列 \\uXXXX 编码/解码',render:genEncDec('unicode',{key:v=>[...v].map(c=>'\\u'+c.charCodeAt(0).toString(16).padStart(4,'0')).join(''),unkey:v=>v.replace(/\\u([0-9a-fA-F]{4})/g,(_,h)=>String.fromCharCode(parseInt(h,16)))})});
+def('morse',{name:'Morse Code',cat:'encoding',icon:'📡',desc:'摩斯电码编码/解码',render:genEncDec('morse',{key:v=>morseEncode(v),unkey:v=>morseDecode(v)})});
+def('rot13',{name:'ROT13',cat:'encoding',icon:'🔄',desc:'ROT13 字母旋转 13 位，含 ROT5/ROT18/ROT47',render:genRotRender()});
+def('qp',{name:'Quoted-Printable',cat:'encoding',icon:'📧',desc:'Quoted-Printable 编码（MIME 邮件编码）',render:genEncDec('qp',{key:v=>qpEncode(v),unkey:v=>qpDecode(v)})});
+
+/* ---------- 对称加密 ---------- */
+def('aes',{name:'AES',cat:'symmetric',icon:'🔒',desc:'高级加密标准 AES-128/192/256，支持多种模式和填充方式',render:genCipherRender('aes',{modes:['CBC','ECB','CFB','OFB','CTR'],paddings:['Pkcs7','ZeroPadding','NoPadding','AnsiX923','Iso10126','Iso97971'],keySizes:['128','192','256']})});
+def('des',{name:'DES',cat:'symmetric',icon:'🔒',desc:'数据加密标准 DES（56 位密钥）',render:genCipherRender('des',{modes:['CBC','ECB','CFB','OFB'],paddings:['Pkcs7','ZeroPadding','NoPadding']})});
+def('tdes',{name:'3DES',cat:'symmetric',icon:'🔒',desc:'三重 DES（Triple DES），密钥长度 168 位',render:genCipherRender('tdes',{modes:['CBC','ECB','CFB','OFB'],paddings:['Pkcs7','ZeroPadding','NoPadding']})});
+def('rc4',{name:'RC4',cat:'symmetric',icon:'🔒',desc:'流密码 RC4（可变密钥长度）',render:genCipherRender('rc4',{modes:['stream'],paddings:['none']})});
+def('rabbit',{name:'Rabbit',cat:'symmetric',icon:'🔒',desc:'高速流密码 Rabbit（128 位密钥）',render:genCipherRender('rabbit',{modes:['stream'],paddings:['none']})});
+def('xorcipher',{name:'XOR Cipher',cat:'symmetric',icon:'🔑',desc:'XOR 异或加密，用密钥对每个字节进行异或运算',render:genXorRender()});
+def('caesar',{name:'Caesar',cat:'symmetric',icon:'🔑',desc:'凯撒密码，按固定偏移量移位字母',render:genCaesarRender()});
+def('vigenere',{name:'Vigenère',cat:'symmetric',icon:'🔑',desc:'维吉尼亚密码，用关键词决定每个字母的偏移量',render:genVigenereRender()});
+def('railfence',{name:'Rail Fence',cat:'symmetric',icon:'🔑',desc:'栅栏密码，将字母按之字形排列后读取',render:genRailFenceRender()});
+def('atbash',{name:'Atbash',cat:'symmetric',icon:'🔑',desc:'Atbash 密码，字母表反转（A↔Z, B↔Y, ...）',render:genEncDec('atbash',{key:v=>atbashTransform(v),unkey:v=>atbashTransform(v)})});
+def('playfair',{name:'Playfair',cat:'symmetric',icon:'🔑',desc:'Playfair 双字母替换密码，基于 5×5 密钥矩阵',render:genPlayfairRender()});
+
+/* ---------- 非对称加密 ---------- */
+def('rsa',{name:'RSA',cat:'asymmetric',icon:'🔐',desc:'RSA 非对称加密/解密/签名/验签',render:genRsaRender()});
+def('ecc',{name:'ECC',cat:'asymmetric',icon:'🔐',desc:'椭圆曲线加密 Ed25519 签名/验签',render:genEccRender()});
+def('dh',{name:'Diffie-Hellman',cat:'asymmetric',icon:'🔐',desc:'Diffie-Hellman 密钥交换',render:genDhRender()});
+def('elgamal',{name:'ElGamal',cat:'asymmetric',icon:'🔐',desc:'ElGamal 非对称加密（基于离散对数）',render:genElGamalRender()});
+
+/* ---------- 哈希 ---------- */
+def('md5',{name:'MD5',cat:'hash',icon:'🧮',desc:'MD5 消息摘要算法（128 位）',render:genHashRender('md5')});
+def('sha1',{name:'SHA-1',cat:'hash',icon:'🧮',desc:'安全哈希算法 SHA-1（160 位）',render:genHashRender('sha1')});
+def('sha256',{name:'SHA-256',cat:'hash',icon:'🧮',desc:'SHA-256 哈希（256 位）',render:genHashRender('sha256')});
+def('sha384',{name:'SHA-384',cat:'hash',icon:'🧮',desc:'SHA-384 哈希（384 位）',render:genHashRender('sha384')});
+def('sha512',{name:'SHA-512',cat:'hash',icon:'🧮',desc:'SHA-512 哈希（512 位）',render:genHashRender('sha512')});
+def('sha3',{name:'SHA-3',cat:'hash',icon:'🧮',desc:'SHA-3 哈希（Keccak, 256 位）',render:genHashRender('sha3')});
+def('hmac',{name:'HMAC',cat:'hash',icon:'🧮',desc:'HMAC 基于哈希的消息认证码，支持 MD5/SHA1/SHA256/SHA384/SHA512',render:genHmacRender()});
+def('crc32',{name:'CRC32',cat:'hash',icon:'🧮',desc:'CRC32 循环冗余校验',render:genHashRender('crc32')});
+
+/* ---------- 其他 ---------- */
+def('otp',{name:'One-Time Pad',cat:'other',icon:'🎲',desc:'一次性密码本（OTP），密钥长度必须 ≥ 消息长度',render:genOtpRender()});
+
+/* ========================================
+   📦 工具类别定义
+   ======================================== */
+const CATEGORIES = [
+  {id:'encoding',name:'编码',icon:'🔤'},
+  {id:'symmetric',name:'对称加密',icon:'🔒'},
+  {id:'asymmetric',name:'非对称加密',icon:'🔐'},
+  {id:'hash',name:'哈希',icon:'🧮'},
+  {id:'other',name:'其他',icon:'📦'}
+];
+
+/* ========================================
+   🧮 通用渲染器工厂
+   ======================================== */
+function genEncDec(id, fns) {
+  return () => `
+    <div class="tool-section">
+      <div class="info-bar">${TOOLS[id].desc}</div>
+      <div class="field"><label>输入</label><textarea id="inp_${id}" placeholder="在此输入文本..." rows="4"></textarea><button class="copy-btn" onclick="copyText('inp_${id}')">📋</button></div>
+      <div class="actions">
+        <button class="btn primary" onclick="doEncDec('${id}','key')">编码 ▶</button>
+        <button class="btn warning" onclick="doEncDec('${id}','unkey')">解码 ◀</button>
+        <button class="btn small" onclick="swapInOut('${id}')">⇅ 交换</button>
+        <button class="btn small" onclick="clearFields('inp_${id}','out_${id}')">清空</button>
+      </div>
+      <div class="field"><label>输出</label><textarea id="out_${id}" class="output" readonly rows="4" placeholder="结果将显示在这里"></textarea><button class="copy-btn" onclick="copyText('out_${id}')">📋</button></div>
+    </div>`;
+}
+
+
+
+function swapInOut(id) {
+  const inp = document.getElementById('inp_'+id);
+  const out = document.getElementById('out_'+id);
+  const t = inp.value; inp.value = out.value; out.value = t;
+}
+
+/* ---------- 通用加密渲染器 ---------- */
+function genCipherRender(id, opts) {
+  const modeOpts = opts.modes.map(m=>`<option value="${m}">${m}</option>`).join('');
+  const padOpts = opts.paddings.map(p=>`<option value="${p}">${p}</option>`).join('');
+  const keyOpts = opts.keySizes ? opts.keySizes.map(s=>`<option value="${s}">${s} 位</option>`).join('') : '';
+  return () => `
+    <div class="tool-section">
+      <div class="info-bar">${TOOLS[id].desc}</div>
+      <div class="field"><label>明文 / 密文</label><textarea id="inp_${id}" rows="4" placeholder="在此输入文本..."></textarea><button class="copy-btn" onclick="copyText('inp_${id}')">📋</button></div>
+      <div class="options-row">
+        <div class="field"><label>密钥</label><input type="text" id="key_${id}" placeholder="输入密钥..."></div>
+        ${opts.keySizes?`<div class="field"><label>密钥长度</label><select id="ks_${id}">${keyOpts}</select></div>`:''}
+        ${opts.modes[0]!=='stream'?`<div class="field"><label>模式</label><select id="mode_${id}">${modeOpts}</select></div>`:''}
+        ${opts.paddings[0]!=='none'?`<div class="field"><label>填充</label><select id="pad_${id}">${padOpts}</select></div>`:''}
+      </div>
+      <div class="actions">
+        <button class="btn primary" onclick="doCipher('${id}','encrypt')">🔒 加密</button>
+        <button class="btn warning" onclick="doCipher('${id}','decrypt')">🔓 解密</button>
+        <button class="btn small" onclick="swapInOut('${id}')">⇅ 交换</button>
+        <button class="btn small" onclick="clearFields('inp_${id}','out_${id}')">清空</button>
+      </div>
+      <div id="status_${id}" class="status-msg"></div>
+      <div class="field"><label>输出</label><textarea id="out_${id}" class="output" readonly rows="4" placeholder="结果将显示在这里"></textarea><button class="copy-btn" onclick="copyText('out_${id}')">📋</button></div>
+    </div>`;
+}
+
+function doEnc(id,type){
+  const v=document.getElementById('inp_'+id).value;
+  if(!v){st(id,'请输入内容','error');return}
+  try{
+    const r=encodeFn(type,v);
+    document.getElementById('out_'+id).value=r;
+    st(id,'','success')
+  }catch(e){st(id,'错误: '+e.message,'error')}
+}
+function doDec(id,type){
+  const v=document.getElementById('inp_'+id).value;
+  if(!v){st(id,'请输入内容','error');return}
+  try{
+    const r=decodeFn(type,v);
+    document.getElementById('out_'+id).value=r;
+    st(id,'','success')
+  }catch(e){st(id,'错误: '+e.message,'error')}
+}
+function doCipher(id, dir) {
+  const inp = document.getElementById('inp_'+id).value;
+  const key = document.getElementById('key_'+id).value;
+  if(!inp){showStatus(id,'请输入内容','error');return}
+  if(!key){showStatus(id,'请输入密钥','error');return}
+  try{
+    const mode = document.getElementById('mode_'+id)?.value || 'CBC';
+    const pad = document.getElementById('pad_'+id)?.value || 'Pkcs7';
+    const ks = document.getElementById('ks_'+id)?.value || '256';
+    let result;
+    if(id==='aes'){
+      const keySize = parseInt(ks)/32;
+      const keyParsed = CryptoJS.enc.Utf8.parse(key.padEnd(32,'\0').slice(0,32));
+      const iv = CryptoJS.enc.Utf8.parse(key.padEnd(16,'\0').slice(0,16));
+      const cfg = {mode: CryptoJS.mode[mode],padding: CryptoJS.pad[pad],iv};
+      if(dir==='encrypt'){
+        result = CryptoJS.AES.encrypt(inp, keyParsed, cfg).toString();
+      } else {
+        result = CryptoJS.AES.decrypt(inp, keyParsed, cfg).toString(CryptoJS.enc.Utf8);
+      }
+    }else if(id==='des'){
+      const keyParsed = CryptoJS.enc.Utf8.parse(key.padEnd(8,'\0').slice(0,8));
+      const iv = CryptoJS.enc.Utf8.parse(key.padEnd(8,'\0').slice(0,8));
+      const cfg = {mode: CryptoJS.mode[mode],padding: CryptoJS.pad[pad],iv};
+      if(dir==='encrypt') result = CryptoJS.DES.encrypt(inp, keyParsed, cfg).toString();
+      else result = CryptoJS.DES.decrypt(inp, keyParsed, cfg).toString(CryptoJS.enc.Utf8);
+    }else if(id==='tdes'){
+      const keyParsed = CryptoJS.enc.Utf8.parse(key.padEnd(24,'\0').slice(0,24));
+      const iv = CryptoJS.enc.Utf8.parse(key.padEnd(8,'\0').slice(0,8));
+      const cfg = {mode: CryptoJS.mode[mode],padding: CryptoJS.pad[pad],iv};
+      if(dir==='encrypt') result = CryptoJS.TripleDES.encrypt(inp, keyParsed, cfg).toString();
+      else result = CryptoJS.TripleDES.decrypt(inp, keyParsed, cfg).toString(CryptoJS.enc.Utf8);
+    }else if(id==='rc4'){
+      if(dir==='encrypt') result = CryptoJS.RC4.encrypt(inp, key).toString();
+      else result = CryptoJS.RC4.decrypt(inp, key).toString(CryptoJS.enc.Utf8);
+    }else if(id==='rabbit'){
+      if(dir==='encrypt') result = CryptoJS.Rabbit.encrypt(inp, key).toString();
+      else result = CryptoJS.Rabbit.decrypt(inp, key).toString(CryptoJS.enc.Utf8);
+    }
+    document.getElementById('out_'+id).value = result;
+    showStatus(id,'','success');
+  }catch(e){showStatus(id,'错误: '+e.message,'error')}
+}
+
+/* ---------- XOR 加密 ---------- */
+function genXorRender() {
+  return () => `
+    <div class="tool-section">
+      <div class="info-bar">XOR 异或加密：对每个字节与密钥进行异或运算。加密和解密使用同一操作。</div>
+      <div class="field"><label>输入文本</label><textarea id="inp_xorcipher" rows="4" placeholder="输入文本或十六进制密文..."></textarea><button class="copy-btn" onclick="copyText('inp_xorcipher')">📋</button></div>
+      <div class="field"><label>密钥</label><input type="text" id="key_xorcipher" placeholder="输入密钥..."></div>
+      <div class="checkbox-row"><input type="checkbox" id="hexout_xorcipher"><label for="hexout_xorcipher">输出/输入为十六进制</label></div>
+      <div class="actions">
+        <button class="btn primary" onclick="doXor()">🔒 加密/解密</button>
+        <button class="btn small" onclick="swapInOut('xorcipher')">⇅ 交换</button>
+        <button class="btn small" onclick="clearFields('inp_xorcipher','out_xorcipher')">清空</button>
+      </div>
+      <div id="status_xorcipher" class="status-msg"></div>
+      <div class="field"><label>输出</label><textarea id="out_xorcipher" class="output" readonly rows="4" placeholder="结果将显示在这里"></textarea><button class="copy-btn" onclick="copyText('out_xorcipher')">📋</button></div>
+    </div>`;
+}
+
+function doXor(){
+  const inp=document.getElementById('inp_xorcipher').value;
+  const key=document.getElementById('key_xorcipher').value;
+  const hex=document.getElementById('hexout_xorcipher').checked;
+  if(!inp){st('xorcipher','请输入内容','error');return}
+  if(!key){st('xorcipher','请输入密钥','error');return}
+  try{
+    let bytes=hex?hexToBytes(inp):str2bytes(inp);
+    const k=str2bytes(key);
+    const res=bytes.map((b,i)=>b^k[i%k.length]);
+    document.getElementById('out_xorcipher').value=hex?bytesToHex(res):bytes2str(res);
+    st('xorcipher','','success');
+  }catch(e){st('xorcipher','错误: '+e.message,'error')}
+}
+
+function genCaesarRender(){
+  return ()=>`
+    <div class="tool-section">
+      <div class="info-bar">凯撒密码：将字母按固定偏移量移位。只影响 A-Z/a-z 字母。</div>
+      <div class="field"><label>输入文本</label><textarea id="inp_caesar" rows="4" placeholder="在此输入文本..."></textarea><button class="copy-btn" onclick="copyText('inp_caesar')">📋</button></div>
+      <div class="options-row">
+        <div class="field"><label>偏移量 (1-25)</label><input type="number" id="shift_caesar" value="3" min="1" max="25"></div>
+      </div>
+      <div class="actions">
+        <button class="btn primary" onclick="doCaesar('encrypt')">🔒 加密</button>
+        <button class="btn warning" onclick="doCaesar('decrypt')">🔓 解密</button>
+        <button class="btn small" onclick="doCaesar('brute')">🔍 暴力破解</button>
+        <button class="btn small" onclick="clr('inp_caesar','out_caesar')">清空</button>
+      </div>
+      <div id="st_caesar" class="status-msg"></div>
+      <div class="field"><label>输出</label><textarea id="out_caesar" class="output" readonly rows="6" placeholder="结果将显示在这里"></textarea><button class="copy-btn" onclick="copyText('out_caesar')">📋</button></div>
+    </div>`;
+}
+function doCaesar(dir){
+  const inp=document.getElementById('inp_caesar').value;
+  if(!inp){st('caesar','请输入内容','error');return}
+  try{
+    if(dir==='brute'){
+      const lines=[];
+      for(let s=1;s<=25;s++) lines.push('Shift '+s+': '+caesarShift(inp,s));
+      document.getElementById('out_caesar').value=lines.join('\n');
+    }else{
+      const shift=parseInt(document.getElementById('shift_caesar').value)||3;
+      const s=dir==='encrypt'?shift:26-shift;
+      document.getElementById('out_caesar').value=caesarShift(inp,s);
+    }
+    st('caesar','','success');
+  }catch(e){st('caesar','错误: '+e.message,'error')}
+}
+function caesarShift(s,shift){
+  return s.split('').map(c=>{
+    if(c>='A'&&c<='Z') return String.fromCharCode((c.charCodeAt(0)-65+shift)%26+65);
+    if(c>='a'&&c<='z') return String.fromCharCode((c.charCodeAt(0)-97+shift)%26+97);
+    return c;
+  }).join('');
+}
+
+function genVigenereRender(){
+  return ()=>`
+    <div class="tool-section">
+      <div class="info-bar">维吉尼亚密码：使用关键词对每个字母进行不同偏移量。大小写保留。</div>
+      <div class="field"><label>输入文本</label><textarea id="inp_vigenere" rows="4" placeholder="在此输入文本..."></textarea><button class="copy-btn" onclick="copyText('inp_vigenere')">📋</button></div>
+      <div class="field"><label>关键词</label><input type="text" id="key_vigenere" placeholder="输入关键词..."></div>
+      <div class="actions">
+        <button class="btn primary" onclick="doVigenere('encrypt')">🔒 加密</button>
+        <button class="btn warning" onclick="doVigenere('decrypt')">🔓 解密</button>
+        <button class="btn small" onclick="swapInOut('vigenere')">⇅ 交换</button>
+        <button class="btn small" onclick="clr('inp_vigenere','out_vigenere')">清空</button>
+      </div>
+      <div id="st_vigenere" class="status-msg"></div>
+      <div class="field"><label>输出</label><textarea id="out_vigenere" class="output" readonly rows="4" placeholder="结果将显示在这里"></textarea><button class="copy-btn" onclick="copyText('out_vigenere')">📋</button></div>
+    </div>`;
+}
+function doVigenere(dir){
+  const inp=document.getElementById('inp_vigenere').value;
+  const key=document.getElementById('key_vigenere').value;
+  if(!inp){st('vigenere','请输入内容','error');return}
+  if(!key){st('vigenere','请输入关键词','error');return}
+  try{
+    const k=key.toLowerCase().replace(/[^a-z]/g,'');
+    if(!k){st('vigenere','关键词必须包含字母','error');return}
+    let ki=0;
+    const res=inp.split('').map(c=>{
+      if(c>='A'&&c<='Z'){
+        const shift=k[ki++%k.length].charCodeAt(0)-97;
+        const s=dir==='encrypt'?shift:26-shift;
+        return String.fromCharCode((c.charCodeAt(0)-65+s)%26+65);
+      }
+      if(c>='a'&&c<='z'){
+        const shift=k[ki++%k.length].charCodeAt(0)-97;
+        const s=dir==='encrypt'?shift:26-shift;
+        return String.fromCharCode((c.charCodeAt(0)-97+s)%26+97);
+      }
+      return c;
+    }).join('');
+    document.getElementById('out_vigenere').value=res;
+    st('vigenere','','success');
+  }catch(e){st('vigenere','错误: '+e.message,'error')}
+}
+
+function genRailFenceRender(){
+  return ()=>`
+    <div class="tool-section">
+      <div class="info-bar">栅栏密码：将字母按之字形写入多行，再按行读取。解密时逆向操作。</div>
+      <div class="field"><label>输入文本</label><textarea id="inp_railfence" rows="4" placeholder="在此输入文本..."></textarea><button class="copy-btn" onclick="copyText('inp_railfence')">📋</button></div>
+      <div class="options-row">
+        <div class="field"><label>行数 (2-10)</label><input type="number" id="rails_railfence" value="3" min="2" max="10"></div>
+      </div>
+      <div class="actions">
+        <button class="btn primary" onclick="doRailFence('encrypt')">🔒 加密</button>
+        <button class="btn warning" onclick="doRailFence('decrypt')">🔓 解密</button>
+        <button class="btn small" onclick="swapInOut('railfence')">⇅ 交换</button>
+        <button class="btn small" onclick="clr('inp_railfence','out_railfence')">清空</button>
+      </div>
+      <div id="st_railfence" class="status-msg"></div>
+      <div class="field"><label>输出</label><textarea id="out_railfence" class="output" readonly rows="4" placeholder="结果将显示在这里"></textarea><button class="copy-btn" onclick="copyText('out_railfence')">📋</button></div>
+    </div>`;
+}
+function doRailFence(dir){
+  const inp=document.getElementById('inp_railfence').value;
+  const n=parseInt(document.getElementById('rails_railfence').value)||3;
+  if(!inp){st('railfence','请输入内容','error');return}
+  try{
+    if(dir==='encrypt'){
+      const rails=Array.from({length:n},()=>[]);
+      let r=0,down=1;
+      for(const c of inp){
+        rails[r].push(c);
+        if(r===0) down=1;
+        else if(r===n-1) down=-1;
+        r+=down;
+      }
+      document.getElementById('out_railfence').value=rails.map(a=>a.join('')).join('');
+    }else{
+      const len=inp.length;
+      const pat=Array(len).fill(0);
+      let r=0,down=1;
+      for(let i=0;i<len;i++){
+        pat[i]=r;
+        if(r===0) down=1;
+        else if(r===n-1) down=-1;
+        r+=down;
+      }
+      const counts=Array(n).fill(0);
+      for(const p of pat) counts[p]++;
+      const rails2=[];
+      let idx=0;
+      for(let i=0;i<n;i++){
+        rails2.push(inp.slice(idx,idx+counts[i]).split(''));
+        idx+=counts[i];
+      }
+      const ptrs=Array(n).fill(0);
+      const res=pat.map(p=>rails2[p][ptrs[p]++]).join('');
+      document.getElementById('out_railfence').value=res;
+    }
+    st('railfence','','success');
+  }catch(e){st('railfence','错误: '+e.message,'error')}
+}
+
+function genPlayfairRender(){
+  return ()=>`
+    <div class="tool-section">
+      <div class="info-bar">Playfair 密码：基于 5×5 密钥矩阵的双字母替换密码。I/J 视为同一字母。</div>
+      <div class="field"><label>输入文本</label><textarea id="inp_playfair" rows="4" placeholder="在此输入文本..."></textarea><button class="copy-btn" onclick="copyText('inp_playfair')">📋</button></div>
+      <div class="field"><label>密钥</label><input type="text" id="key_playfair" placeholder="输入密钥..."></div>
+      <div class="actions">
+        <button class="btn primary" onclick="doPlayfair('encrypt')">🔒 加密</button>
+        <button class="btn warning" onclick="doPlayfair('decrypt')">🔓 解密</button>
+        <button class="btn small" onclick="swapInOut('playfair')">⇅ 交换</button>
+        <button class="btn small" onclick="clr('inp_playfair','out_playfair')">清空</button>
+      </div>
+      <div id="st_playfair" class="status-msg"></div>
+      <div class="field"><label>输出</label><textarea id="out_playfair" class="output" readonly rows="4" placeholder="结果将显示在这里"></textarea><button class="copy-btn" onclick="copyText('out_playfair')">📋</button></div>
+    </div>`;
+}
+function doPlayfair(dir){
+  const inp=document.getElementById('inp_playfair').value.toUpperCase().replace(/[^A-Z]/g,'');
+  const key=document.getElementById('key_playfair').value.toUpperCase();
+  if(!inp){st('playfair','请输入内容','error');return}
+  if(!key){st('playfair','请输入密钥','error');return}
+  try{
+    // Build 5x5 matrix
+    const seen=new Set();
+    const matrix=[];
+    const addChar=c=>{if(c==='J')c='I';if(!seen.has(c)){seen.add(c);matrix.push(c)}};
+    for(const c of key) addChar(c);
+    for(let i=65;i<=90;i++){if(i!==74)addChar(String.fromCharCode(i))}
+    // Helper: find position
+    const pos=c=>{const i=matrix.indexOf(c==='J'?'I':c);return[Math.floor(i/5),i%5]};
+    // Prepare text
+    let text=inp.replace(/J/g,'I');
+    const pairs=[];
+    for(let i=0;i<text.length;i+=2){
+      if(i+1>=text.length) pairs.push(text[i]+'X');
+      else if(text[i]===text[i+1]){pairs.push(text[i]+'X');i--;}
+      else pairs.push(text[i]+text[i+1]);
+    }
+    const res=pairs.map(p=>{
+      const[r1,c1]=pos(p[0]),[r2,c2]=pos(p[1]);
+      if(r1===r2){
+        const nc1=dir==='encrypt'?(c1+1)%5:(c1+4)%5;
+        const nc2=dir==='encrypt'?(c2+1)%5:(c2+4)%5;
+        return matrix[r1*5+nc1]+matrix[r2*5+nc2];
+      }else if(c1===c2){
+        const nr1=dir==='encrypt'?(r1+1)%5:(r1+4)%5;
+        const nr2=dir==='encrypt'?(r2+1)%5:(r2+4)%5;
+        return matrix[nr1*5+c1]+matrix[nr2*5+c2];
+      }else{
+        return matrix[r1*5+c2]+matrix[r2*5+c1];
+      }
+    }).join('');
+    document.getElementById('out_playfair').value=res;
+    st('playfair','','success');
+  }catch(e){st('playfair','错误: '+e.message,'error')}
+}
+
+/* ==========================================
+   🔐 非对称加密渲染器
+   ========================================== */
+function genRsaRender(){
+  return ()=>`
+    <div class="tool-section">
+      <div class="info-bar">RSA 非对称加密：生成公钥/私钥对，使用公钥加密、私钥解密，或私钥签名、公钥验签。</div>
+      <div class="actions" style="margin-bottom:10px">
+        <button class="btn primary" onclick="genRsaKey()">🎲 生成密钥对 (2048位)</button>
+      </div>
+      <div class="keypair-area">
+        <h4>🔑 公钥 (Public Key)</h4>
+        <textarea id="rsa_pub" rows="3" placeholder="点击生成密钥对..."></textarea>
+      </div>
+      <div class="keypair-area">
+        <h4>🔑 私钥 (Private Key)</h4>
+        <textarea id="rsa_priv" rows="3" placeholder="点击生成密钥对..."></textarea>
+      </div>
+      <div class="field"><label>输入文本</label><textarea id="inp_rsa" rows="3" placeholder="加密/解密/签名/验签的文本..."></textarea><button class="copy-btn" onclick="copyText('inp_rsa')">📋</button></div>
+      <div class="actions">
+        <button class="btn primary" onclick="doRsa('encrypt')">🔒 公钥加密</button>
+        <button class="btn warning" onclick="doRsa('decrypt')">🔓 私钥解密</button>
+        <button class="btn success" onclick="doRsa('sign')">✍️ 私钥签名</button>
+        <button class="btn" onclick="doRsa('verify')">✅ 公钥验签</button>
+        <button class="btn small" onclick="clr('inp_rsa','out_rsa')">清空</button>
+      </div>
+      <div id="st_rsa" class="status-msg"></div>
+      <div class="field"><label>输出</label><textarea id="out_rsa" class="output" readonly rows="4" placeholder="结果将显示在这里"></textarea><button class="copy-btn" onclick="copyText('out_rsa')">📋</button></div>
+    </div>`;
+}
+var rsaKeys=null;
+function genRsaKey(){
+  try{
+    st('rsa','正在生成 RSA 密钥对（2048位），请稍候...','info');
+    setTimeout(()=>{
+      try{
+        const keypair=forge.pki.rsa.generateKeyPair({bits:2048,workers:-1});
+        rsaKeys=keypair;
+        document.getElementById('rsa_pub').value=forge.pki.publicKeyToPem(keypair.publicKey);
+        document.getElementById('rsa_priv').value=forge.pki.privateKeyToPem(keypair.privateKey);
+        st('rsa','RSA 2048 位密钥对生成成功','success');
+      }catch(e){st('rsa','生成失败: '+e.message,'error')}
+    },100);
+  }catch(e){st('rsa','错误: '+e.message,'error')}
+}
+function doRsa(dir){
+  const inp=document.getElementById('inp_rsa').value;
+  if(!inp){st('rsa','请输入内容','error');return}
+  try{
+    if(dir==='encrypt'){
+      const pubPem=document.getElementById('rsa_pub').value;
+      if(!pubPem){st('rsa','请先生成或输入公钥','error');return}
+      const pub=forge.pki.publicKeyFromPem(pubPem);
+      const enc=pub.encrypt(inp,'RSA-OAEP');
+      document.getElementById('out_rsa').value=forge.util.encode64(enc);
+    }else if(dir==='decrypt'){
+      const privPem=document.getElementById('rsa_priv').value;
+      if(!privPem){st('rsa','请先生成或输入私钥','error');return}
+      const priv=forge.pki.privateKeyFromPem(privPem);
+      const dec=priv.decrypt(forge.util.decode64(inp),'RSA-OAEP');
+      document.getElementById('out_rsa').value=dec;
+    }else if(dir==='sign'){
+      const privPem=document.getElementById('rsa_priv').value;
+      if(!privPem){st('rsa','请先生成或输入私钥','error');return}
+      const priv=forge.pki.privateKeyFromPem(privPem);
+      const md=forge.md.sha256.create();
+      md.update(inp);
+      const sig=priv.sign(md);
+      document.getElementById('out_rsa').value=forge.util.encode64(sig);
+    }else if(dir==='verify'){
+      const pubPem=document.getElementById('rsa_pub').value;
+      if(!pubPem){st('rsa','请先生成或输入公钥','error');return}
+      const pub=forge.pki.publicKeyFromPem(pubPem);
+      const md=forge.md.sha256.create();
+      md.update(inp);
+      const sig=forge.util.decode64(document.getElementById('out_rsa').value);
+      const ok=pub.verify(md.digest().bytes(),sig);
+      st('rsa',ok?'✅ 签名验证通过':'❌ 签名验证失败',ok?'success':'error');
+      return;
+    }
+    st('rsa','操作成功','success');
+  }catch(e){st('rsa','错误: '+e.message,'error')}
+}
+
+function genEccRender(){
+  return ()=>`
+    <div class="tool-section">
+      <div class="info-bar">Ed25519 椭圆曲线签名：生成密钥对，签名和验签。</div>
+      <div class="actions" style="margin-bottom:10px">
+        <button class="btn primary" onclick="genEccKey()">🎲 生成密钥对</button>
+      </div>
+      <div class="keypair-area">
+        <h4>🔑 公钥 (Base64)</h4>
+        <textarea id="ecc_pub" rows="2" placeholder="点击生成密钥对..."></textarea>
+      </div>
+      <div class="keypair-area">
+        <h4>🔑 私钥 (Base64)</h4>
+        <textarea id="ecc_priv" rows="2" placeholder="点击生成密钥对..."></textarea>
+      </div>
+      <div class="field"><label>输入文本</label><textarea id="inp_ecc" rows="3" placeholder="输入要签名的文本..."></textarea><button class="copy-btn" onclick="copyText('inp_ecc')">📋</button></div>
+      <div class="actions">
+        <button class="btn success" onclick="doEcc('sign')">✍️ 签名</button>
+        <button class="btn" onclick="doEcc('verify')">✅ 验签</button>
+        <button class="btn small" onclick="clr('inp_ecc','out_ecc')">清空</button>
+      </div>
+      <div id="st_ecc" class="status-msg"></div>
+      <div class="field"><label>输出 / 签名 (Base64)</label><textarea id="out_ecc" class="output" readonly rows="2" placeholder="结果将显示在这里"></textarea><button class="copy-btn" onclick="copyText('out_ecc')">📋</button></div>
+    </div>`;
+}
+var eccKeys=null;
+function genEccKey(){
+  try{
+    const kp=forge.ed25519.generateKeyPair();
+    eccKeys=kp;
+    document.getElementById('ecc_pub').value=forge.util.encode64(kp.publicKey);
+    document.getElementById('ecc_priv').value=forge.util.encode64(kp.privateKey);
+    st('ecc','Ed25519 密钥对生成成功','success');
+  }catch(e){st('ecc','生成失败: '+e.message,'error')}
+}
+function doEcc(dir){
+  const inp=document.getElementById('inp_ecc').value;
+  if(!inp){st('ecc','请输入内容','error');return}
+  try{
+    if(dir==='sign'){
+      const privB64=document.getElementById('ecc_priv').value;
+      if(!privB64){st('ecc','请先生成或输入私钥','error');return}
+      const priv=forge.util.decode64(privB64);
+      const sig=forge.ed25519.sign({message:inp,privateKey:priv,encoding:'utf8'});
+      document.getElementById('out_ecc').value=forge.util.encode64(sig);
+      st('ecc','签名成功','success');
+    }else if(dir==='verify'){
+      const pubB64=document.getElementById('ecc_pub').value;
+      if(!pubB64){st('ecc','请先生成或输入公钥','error');return}
+      const sigB64=document.getElementById('out_ecc').value;
+      if(!sigB64){st('ecc','请先签名或输入签名','error');return}
+      const pub=forge.util.decode64(pubB64);
+      const sig=forge.util.decode64(sigB64);
+      const ok=forge.ed25519.verify({message:inp,signature:sig,publicKey:pub,encoding:'utf8'});
+      st('ecc',ok?'✅ 签名验证通过':'❌ 签名验证失败',ok?'success':'error');
+    }
+  }catch(e){st('ecc','错误: '+e.message,'error')}
+}
+
+function genDhRender(){
+  return ()=>`
+    <div class="tool-section">
+      <div class="info-bar">Diffie-Hellman 密钥交换：双方各自生成密钥对，交换公钥后计算出共享密钥。</div>
+      <div class="keypair-area">
+        <h4>👤 甲方 (Alice)</h4>
+        <div class="actions"><button class="btn primary" onclick="genDh('alice')">🎲 生成密钥对</button></div>
+        <div class="field"><label>公钥 (Base64)</label><textarea id="dh_pubA" rows="2" readonly placeholder="点击生成..."></textarea></div>
+        <div class="field"><label>私钥 (Base64)</label><textarea id="dh_privA" rows="2" readonly placeholder="点击生成..."></textarea></div>
+      </div>
+      <div class="keypair-area">
+        <h4>👤 乙方 (Bob)</h4>
+        <div class="actions"><button class="btn primary" onclick="genDh('bob')">🎲 生成密钥对</button></div>
+        <div class="field"><label>公钥 (Base64)</label><textarea id="dh_pubB" rows="2" readonly placeholder="点击生成..."></textarea></div>
+        <div class="field"><label>私钥 (Base64)</label><textarea id="dh_privB" rows="2" readonly placeholder="点击生成..."></textarea></div>
+      </div>
+      <div class="actions">
+        <button class="btn success" onclick="doDh()">🔗 计算共享密钥</button>
+      </div>
+      <div id="st_dh" class="status-msg"></div>
+      <div class="field"><label>共享密钥 (SHA-256)</label><textarea id="out_dh" class="output" readonly rows="2" placeholder="点击计算共享密钥..."></textarea><button class="copy-btn" onclick="copyText('out_dh')">📋</button></div>
+    </div>`;
+}
+var dhAlice=null,dhBob=null;
+function genDh(who){
+  try{
+    const bits=1024;
+    forge.prime.generateProbablePrime(bits,function(err,num){
+      if(err){st('dh','生成失败','error');return}
+      const dh=forge.dh.createDiffieHellman(num);
+      dh.generateKeys();
+      if(who==='alice'){
+        dhAlice=dh;
+        document.getElementById('dh_pubA').value=forge.util.encode64(dh.getPublicKey());
+        document.getElementById('dh_privA').value=forge.util.encode64(dh.getPrivateKey());
+      }else{
+        dhBob=dh;
+        document.getElementById('dh_pubB').value=forge.util.encode64(dh.getPublicKey());
+        document.getElementById('dh_privB').value=forge.util.encode64(dh.getPrivateKey());
+      }
+      st('dh',who==='alice'?'甲方密钥对生成成功':'乙方密钥对生成成功','success');
+    });
+  }catch(e){st('dh','错误: '+e.message,'error')}
+}
+function doDh(){
+  if(!dhAlice||!dhBob){st('dh','请先生成双方的密钥对','error');return}
+  try{
+    const pubB=forge.util.decode64(document.getElementById('dh_pubB').value);
+    const pubA=forge.util.decode64(document.getElementById('dh_pubA').value);
+    dhAlice.setPublicKey(pubB);
+    dhBob.setPublicKey(pubA);
+    const secA=dhAlice.computeSecret();
+    const secB=dhBob.computeSecret();
+    if(forge.util.createBuffer(secA).toHex()===forge.util.createBuffer(secB).toHex()){
+      const hash=CryptoJS.SHA256(forge.util.createBuffer(secA).toHex()).toString();
+      document.getElementById('out_dh').value=hash;
+      st('dh','✅ 共享密钥一致！','success');
+    }else{
+      st('dh','❌ 共享密钥不一致','error');
+    }
+  }catch(e){st('dh','错误: '+e.message,'error')}
+}
+
+function genElGamalRender(){
+  return ()=>`
+    <div class="tool-section">
+      <div class="info-bar">ElGamal 非对称加密：基于离散对数问题。生成密钥对，使用公钥加密、私钥解密。</div>
+      <div class="actions" style="margin-bottom:10px">
+        <button class="btn primary" onclick="genElGamalKey()">🎲 生成密钥对</button>
+      </div>
+      <div class="keypair-area">
+        <h4>🔑 公钥 (p,g,y)</h4>
+        <textarea id="elg_pub" rows="2" placeholder="点击生成密钥对..."></textarea>
+      </div>
+      <div class="keypair-area">
+        <h4>🔑 私钥 (x)</h4>
+        <textarea id="elg_priv" rows="2" placeholder="点击生成密钥对..."></textarea>
+      </div>
+      <div class="field"><label>输入文本</label><textarea id="inp_elg" rows="3" placeholder="输入要加密的文本..."></textarea><button class="copy-btn" onclick="copyText('inp_elg')">📋</button></div>
+      <div class="actions">
+        <button class="btn primary" onclick="doElGamal('encrypt')">🔒 公钥加密</button>
+        <button class="btn warning" onclick="doElGamal('decrypt')">🔓 私钥解密</button>
+        <button class="btn small" onclick="clr('inp_elg','out_elg')">清空</button>
+      </div>
+      <div id="st_elg" class="status-msg"></div>
+      <div class="field"><label>输出</label><textarea id="out_elg" class="output" readonly rows="3" placeholder="结果将显示在这里"></textarea><button class="copy-btn" onclick="copyText('out_elg')">📋</button></div>
+    </div>`;
+}
+var elgKeys=null;
+function genElGamalKey(){
+  try{
+    // Use small prime for browser performance
+    const p=bigInt('FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3DC2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F83655D23DCA3AD961C62F356208552BB9ED529077096966D670C354E4ABC9804F1746C08CA18217C32905E462E',16);
+    const g=bigInt(2);
+    const x=bigInt.randBetween(1,p.minus(1));
+    const y=g.modPow(x,p);
+    elgKeys={p,g,x,y};
+    document.getElementById('elg_pub').value='p='+p.toString(16).slice(0,32)+'...\ng='+g.toString()+'\ny='+y.toString(16).slice(0,32)+'...';
+    document.getElementById('elg_priv').value='x='+x.toString(16).slice(0,32)+'...';
+    st('elg','ElGamal 密钥对生成成功','success');
+  }catch(e){st('elg','生成失败: '+e.message,'error')}
+}
+function doElGamal(dir){
+  const inp=document.getElementById('inp_elg').value;
+  if(!inp){st('elg','请输入内容','error');return}
+  if(!elgKeys){st('elg','请先生成密钥对','error');return}
+  try{
+    if(dir==='encrypt'){
+      const {p,g,y}=elgKeys;
+      const k=bigInt.randBetween(1,p.minus(1));
+      const c1=g.modPow(k,p);
+      const m=str2bytes(inp).reduce((a,b)=>a.multiply(256).add(b),bigInt(0));
+      const c2=m.multiply(y.modPow(k,p)).mod(p);
+      document.getElementById('out_elg').value=c1.toString(16)+':'+c2.toString(16);
+    }else{
+      const {p,x}=elgKeys;
+      const parts=inp.split(':');
+      const c1=bigInt(parts[0],16);
+      const c2=bigInt(parts[1],16);
+      const s=c1.modPow(x,p);
+      const m=c2.multiply(s.modInv(p)).mod(p);
+      const bytes=[];
+      let tmp=m;
+      while(tmp>0){bytes.unshift(parseInt(tmp.mod(256).toString()));tmp=tmp.divide(256);}
+      document.getElementById('out_elg').value=bytes2str(bytes);
+    }
+    st('elg','操作成功','success');
+  }catch(e){st('elg','错误: '+e.message,'error')}
+}
+
+/* ==========================================
+   🧮 哈希渲染器
+   ========================================== */
+function genHashRender(algo){
+  const names={md5:'MD5',sha1:'SHA-1',sha256:'SHA-256',sha384:'SHA-384',sha512:'SHA-512',sha3:'SHA-3',crc32:'CRC32'};
+  return ()=>`
+    <div class="tool-section">
+      <div class="info-bar">${TOOLS[algo].desc}</div>
+      <div class="field"><label>输入文本</label><textarea id="inp_${algo}" rows="4" placeholder="在此输入文本..."></textarea><button class="copy-btn" onclick="copyText('inp_${algo}')">📋</button></div>
+      <div class="actions">
+        <button class="btn primary" onclick="doHash('${algo}')">🧮 计算 ${names[algo]}</button>
+        <button class="btn small" onclick="clr('inp_${algo}','out_${algo}')">清空</button>
+      </div>
+      <div id="st_${algo}" class="status-msg"></div>
+      <div class="field"><label>${names[algo]} 值</label><div class="hash-result" id="out_${algo}" style="user-select:text">等待计算...</div><button class="copy-btn" style="position:absolute;top:0;right:0" onclick="copyEl('out_${algo}')">📋</button></div>
+    </div>`;
+}
+function doHash(algo){
+  const inp=document.getElementById('inp_'+algo).value;
+  if(!inp){st(algo,'请输入内容','error');return}
+  try{
+    let result='';
+    if(algo==='md5') result=CryptoJS.MD5(inp).toString();
+    else if(algo==='sha1') result=CryptoJS.SHA1(inp).toString();
+    else if(algo==='sha256') result=CryptoJS.SHA256(inp).toString();
+    else if(algo==='sha384') result=CryptoJS.SHA384(inp).toString();
+    else if(algo==='sha512') result=CryptoJS.SHA512(inp).toString();
+    else if(algo==='sha3') result=CryptoJS.SHA3(inp).toString();
+    else if(algo==='crc32') result=calcCRC32(inp);
+    document.getElementById('out_'+algo).textContent=result;
+    st(algo,'','success');
+  }catch(e){st(algo,'错误: '+e.message,'error')}
+}
+
+function genHmacRender(){
+  return ()=>`
+    <div class="tool-section">
+      <div class="info-bar">HMAC 基于哈希的消息认证码，需要密钥和消息。</div>
+      <div class="field"><label>消息</label><textarea id="inp_hmac" rows="3" placeholder="输入消息..."></textarea><button class="copy-btn" onclick="copyText('inp_hmac')">📋</button></div>
+      <div class="options-row">
+        <div class="field" style="flex:2"><label>密钥</label><input type="text" id="key_hmac" placeholder="输入密钥..."></div>
+        <div class="field"><label>算法</label><select id="alg_hmac"><option value="MD5">MD5</option><option value="SHA1" selected>SHA-1</option><option value="SHA256">SHA-256</option><option value="SHA384">SHA-384</option><option value="SHA512">SHA-512</option></select></div>
+      </div>
+      <div class="actions">
+        <button class="btn primary" onclick="doHmac()">🧮 计算 HMAC</button>
+        <button class="btn small" onclick="clr('inp_hmac','out_hmac')">清空</button>
+      </div>
+      <div id="st_hmac" class="status-msg"></div>
+      <div class="field"><label>HMAC 值</label><div class="hash-result" id="out_hmac" style="user-select:text">等待计算...</div><button class="copy-btn" style="position:absolute;top:0;right:0" onclick="copyEl('out_hmac')">📋</button></div>
+    </div>`;
+}
+function doHmac(){
+  const inp=document.getElementById('inp_hmac').value;
+  const key=document.getElementById('key_hmac').value;
+  const alg=document.getElementById('alg_hmac').value;
+  if(!inp){st('hmac','请输入消息','error');return}
+  if(!key){st('hmac','请输入密钥','error');return}
+  try{
+    const result=CryptoJS.HmacMD5?CryptoJS['Hmac'+alg](inp,key).toString():'';
+    document.getElementById('out_hmac').textContent=result;
+    st('hmac','','success');
+  }catch(e){st('hmac','错误: '+e.message,'error')}
+}
+
+/* ==========================================
+   🔄 ROT/OTP 渲染器
+   ========================================== */
+function genRotRender(){
+  return ()=>`
+    <div class="tool-section">
+      <div class="info-bar">ROT-N 字符旋转：ROT13 (字母13), ROT5 (数字5), ROT18 (ROT13+ROT5), ROT47 (所有可打印ASCII)。</div>
+      <div class="field"><label>输入文本</label><textarea id="inp_rot13" rows="4" placeholder="在此输入文本..."></textarea><button class="copy-btn" onclick="copyText('inp_rot13')">📋</button></div>
+      <div class="options-row">
+        <div class="field"><label>变体</label><select id="variant_rot13"><option value="13">ROT13 (字母)</option><option value="5">ROT5 (数字)</option><option value="18">ROT18 (字母+数字)</option><option value="47">ROT47 (可打印ASCII)</option></select></div>
+      </div>
+      <div class="actions">
+        <button class="btn primary" onclick="doRot()">🔄 转换</button>
+        <button class="btn small" onclick="swapInOut('rot13')">⇅ 交换</button>
+        <button class="btn small" onclick="clr('inp_rot13','out_rot13')">清空</button>
+      </div>
+      <div id="st_rot13" class="status-msg"></div>
+      <div class="field"><label>输出</label><textarea id="out_rot13" class="output" readonly rows="4" placeholder="结果将显示在这里"></textarea><button class="copy-btn" onclick="copyText('out_rot13')">📋</button></div>
+    </div>`;
+}
+function doRot(){
+  const inp=document.getElementById('inp_rot13').value;
+  const v=parseInt(document.getElementById('variant_rot13').value);
+  if(!inp){st('rot13','请输入内容','error');return}
+  try{
+    let res;
+    if(v===13) res=inp.replace(/[a-zA-Z]/g,c=>String.fromCharCode(c<='Z'?(c.charCodeAt(0)-65+13)%26+65:(c.charCodeAt(0)-97+13)%26+97));
+    else if(v===5) res=inp.replace(/[0-9]/g,c=>(parseInt(c)+5)%10+'');
+    else if(v===18) res=inp.replace(/[a-zA-Z]/g,c=>String.fromCharCode(c<='Z'?(c.charCodeAt(0)-65+13)%26+65:(c.charCodeAt(0)-97+13)%26+97)).replace(/[0-9]/g,c=>(parseInt(c)+5)%10+'');
+    else if(v===47) res=inp.replace(/[\x21-\x7e]/g,c=>String.fromCharCode((c.charCodeAt(0)-33+47)%94+33));
+    document.getElementById('out_rot13').value=res;
+    st('rot13','','success');
+  }catch(e){st('rot13','错误: '+e.message,'error')}
+}
+
+function genOtpRender(){
+  return ()=>`
+    <div class="tool-section">
+      <div class="info-bar">一次性密码本 (OTP)：密钥长度必须 ≥ 消息长度。加密和解密使用同一操作。使用 XOR 逐字节运算。</div>
+      <div class="actions" style="margin-bottom:10px">
+        <button class="btn primary" onclick="genOtpKey()">🎲 生成随机密钥</button>
+      </div>
+      <div class="field"><label>输入文本</label><textarea id="inp_otp" rows="3" placeholder="在此输入文本..."></textarea><button class="copy-btn" onclick="copyText('inp_otp')">📋</button></div>
+      <div class="field"><label>密钥 (长度 ≥ 消息)</label><textarea id="key_otp" rows="3" placeholder="输入或生成密钥..."></textarea><button class="copy-btn" onclick="copyText('key_otp')">📋</button></div>
+      <div class="checkbox-row"><input type="checkbox" id="hexout_otp"><label for="hexout_otp">十六进制输出/输入</label></div>
+      <div class="actions">
+        <button class="btn primary" onclick="doOtp()">🔒 加密/解密</button>
+        <button class="btn small" onclick="swapInOut('otp')">⇅ 交换</button>
+        <button class="btn small" onclick="clr('inp_otp','out_otp','key_otp')">清空</button>
+      </div>
+      <div id="st_otp" class="status-msg"></div>
+      <div class="field"><label>输出</label><textarea id="out_otp" class="output" readonly rows="3" placeholder="结果将显示在这里"></textarea><button class="copy-btn" onclick="copyText('out_otp')">📋</button></div>
+    </div>`;
+}
+function genOtpKey(){
+  const inp=document.getElementById('inp_otp').value;
+  if(!inp){st('otp','请先输入消息','error');return}
+  const len=inp.length;
+  const key=Array.from({length:len},()=>String.fromCharCode(32+Math.floor(Math.random()*94))).join('');
+  document.getElementById('key_otp').value=key;
+}
+function doOtp(){
+  const inp=document.getElementById('inp_otp').value;
+  const key=document.getElementById('key_otp').value;
+  const hex=document.getElementById('hexout_otp').checked;
+  if(!inp){st('otp','请输入内容','error');return}
+  if(!key){st('otp','请输入密钥','error');return}
+  if(key.length<inp.length){st('otp','密钥长度必须 ≥ 消息长度','error');return}
+  try{
+    let bytes=hex?hexToBytes(inp):str2bytes(inp);
+    const k=str2bytes(key.slice(0,inp.length));
+    const res=bytes.map((b,i)=>b^k[i]);
+    document.getElementById('out_otp').value=hex?bytesToHex(res):bytes2str(res);
+    st('otp','','success');
+  }catch(e){st('otp','错误: '+e.message,'error')}
+}
+
+/* ==========================================
+   🧰 编码/解码函数
+   ========================================== */
+function encodeFn(type,v){
+  if(type==='base64') return btoa(unescape(encodeURIComponent(v)));
+  if(type==='base32') return base32Encode(v);
+  if(type==='base58') return base58Encode(v);
+  if(type==='base62') return base62Encode(v);
+  if(type==='base85') return base85Encode(v);
+  if(type==='hex') return bytesToHex(str2bytes(v));
+  if(type==='binary') return str2bytes(v).map(b=>b.toString(2).padStart(8,'0')).join(' ');
+  if(type==='octal') return str2bytes(v).map(b=>b.toString(8).padStart(3,'0')).join(' ');
+  if(type==='urlenc') return encodeURIComponent(v);
+  if(type==='htmlent') return v.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  if(type==='unicode') return [...v].map(c=>'\\u'+c.charCodeAt(0).toString(16).padStart(4,'0')).join('');
+  if(type==='morse') return morseEncode(v);
+  if(type==='atbash') return atbashTransform(v);
+  if(type==='qp') return qpEncode(v);
+  return v;
+}
+function decodeFn(type,v){
+  if(type==='base64') return decodeURIComponent(escape(atob(v.trim())));
+  if(type==='base32') return base32Decode(v);
+  if(type==='base58') return base58Decode(v);
+  if(type==='base62') return base62Decode(v);
+  if(type==='base85') return base85Decode(v);
+  if(type==='hex') return bytes2str(hexToBytes(v));
+  if(type==='binary') return bytes2str(v.split(/\s+/).filter(Boolean).map(b=>parseInt(b,2)));
+  if(type==='octal') return bytes2str(v.split(/\s+/).filter(Boolean).map(b=>parseInt(b,8)));
+  if(type==='urlenc') return decodeURIComponent(v);
+  if(type==='htmlent') return v.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#39;/g,"'");
+  if(type==='unicode') return v.replace(/\\u([0-9a-fA-F]{4})/g,(_,h)=>String.fromCharCode(parseInt(h,16)));
+  if(type==='morse') return morseDecode(v);
+  if(type==='atbash') return atbashTransform(v);
+  if(type==='qp') return qpDecode(v);
+  return v;
+}
+
+/* ==========================================
+   🔤 Base32
+   ========================================== */
+const BASE32='ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+function base32Encode(s){
+  const bytes=str2bytes(s);
+  let bits='';for(const b of bytes) bits+=b.toString(2).padStart(8,'0');
+  bits=bits.padEnd(Math.ceil(bits.length/5)*5,'0');
+  let res='';for(let i=0;i<bits.length;i+=5) res+=BASE32[parseInt(bits.slice(i,i+5),2)];
+  return res;
+}
+function base32Decode(s){
+  let bits='';for(const c of s.toUpperCase()){const idx=BASE32.indexOf(c);if(idx>=0)bits+=idx.toString(2).padStart(5,'0')}
+  const bytes=[];for(let i=0;i+8<=bits.length;i+=8) bytes.push(parseInt(bits.slice(i,i+8),2));
+  return bytes2str(bytes);
+}
+
+/* ==========================================
+   💰 Base58 (Bitcoin alphabet)
+   ========================================== */
+const BASE58='123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+function base58Encode(s){
+  const bytes=str2bytes(s);
+  let n=bigInt(0);for(const b of bytes) n=n.multiply(256).add(b);
+  if(n.equals(0))return '';
+  let res='';const base=bigInt(58);
+  while(n>0){res=BASE58[parseInt(n.mod(base).toString())]+res;n=n.divide(base);}
+  return res;
+}
+function base58Decode(s){
+  let n=bigInt(0);const base=bigInt(58);
+  for(const c of s){const idx=BASE58.indexOf(c);if(idx>=0)n=n.multiply(base).add(idx);}
+  const bytes=[];while(n>0){bytes.unshift(parseInt(n.mod(256).toString()));n=n.divide(256);}
+  return bytes2str(bytes);
+}
+
+/* ==========================================
+   🔢 Base62
+   ========================================== */
+const BASE62='0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+function base62Encode(s){
+  const bytes=str2bytes(s);
+  let n=bigInt(0);for(const b of bytes)n=n.multiply(256).add(b);
+  if(n.equals(0))return '0';
+  let res='';const base=bigInt(62);
+  while(n>0){res=BASE62[parseInt(n.mod(base).toString())]+res;n=n.divide(base);}
+  return res;
+}
+function base62Decode(s){
+  let n=bigInt(0);const base=bigInt(62);
+  for(const c of s){const idx=BASE62.indexOf(c);if(idx>=0)n=n.multiply(base).add(idx);}
+  const bytes=[];while(n>0){bytes.unshift(parseInt(n.mod(256).toString()));n=n.divide(256);}
+  return bytes2str(bytes);
+}
+
+/* ==========================================
+   📦 Base85 (Ascii85 / RFC 1924)
+   ========================================== */
+function base85Encode(s){
+  const bytes=str2bytes(s);
+  let res='';const base=bigInt(85);
+  for(let i=0;i<bytes.length;i+=4){
+    const chunk=bytes.slice(i,i+4);
+    let n=bigInt(0);for(const b of chunk)n=n.multiply(256).add(b);
+    const pad=4-chunk.length;
+    for(let j=0;j<pad;j++)n=n.multiply(256);
+    let group='';for(let j=0;j<5-pad;j++){group=String.fromCharCode(33+parseInt(n.mod(base).toString()))+group;n=n.divide(base);}
+    res+=group.repeat(5-pad).slice(0,5-pad);
+  }
+  return res;
+}
+function base85Decode(s){
+  let res='';const base=bigInt(85);
+  for(let i=0;i<s.length;i+=5){
+    const chunk=s.slice(i,i+5);
+    let n=bigInt(0);
+    for(const c of chunk)n=n.multiply(base).add(c.charCodeAt(0)-33);
+    const pad=5-chunk.length;
+    for(let j=0;j<pad;j++)n=n.multiply(85);
+    const bytes=[];for(let j=0;j<4-pad;j++){bytes.unshift(parseInt(n.mod(256).toString()));n=n.divide(256);}
+    res+=bytes2str(bytes);
+  }
+  return res;
+}
+
+/* ==========================================
+   📡 摩斯电码
+   ========================================== */
+const MORSE={A:'.-',B:'-...',C:'-.-.',D:'-..',E:'.',F:'..-.',G:'--.',H:'....',I:'..',J:'.---',K:'-.-',L:'.-..',M:'--',N:'-.',O:'---',P:'.--.',Q:'--.-',R:'.-.',S:'...',T:'-',U:'..-',V:'...-',W:'.--',X:'-..-',Y:'-.--',Z:'--..',0:'-----',1:'.----',2:'..---',3:'...--',4:'....-',5:'.....',6:'-....',7:'--...',8:'---..',9:'----.','.':'.-.-.-',',':'--..--','?':'..--..',"'":'.----.','!':'-.-.--','/':'-..-.','(':'-.--.',')':'-.--.-','&':'.-...',':':'---...',';':'-.-.-.','=':'-...-','+':'.-.-.','-':'....-','_':'..--.-','"':'.-..-.','@':'.--.-.',' ':'/'};
+const MORSE_REV=Object.fromEntries(Object.entries(MORSE).map(([k,v])=>[v,k]));
+function morseEncode(s){return s.toUpperCase().split('').map(c=>MORSE[c]||c).join(' ')}
+function morseDecode(s){return s.split(/\s+/).map(t=>MORSE_REV[t]||t).join('')}
+
+/* ==========================================
+   🔄 Atbash
+   ========================================== */
+function atbashTransform(s){return s.split('').map(c=>{if(c>='A'&&c<='Z')return String.fromCharCode(90-(c.charCodeAt(0)-65));if(c>='a'&&c<='z')return String.fromCharCode(122-(c.charCodeAt(0)-97));return c}).join('')}
+
+/* ==========================================
+   📧 Quoted-Printable
+   ========================================== */
+function qpEncode(s){return encodeURIComponent(s).replace(/%/g,'=')}
+function qpDecode(s){return decodeURIComponent(s.replace(/=/g,'%'))}
+
+/* ==========================================
+   🔢 CRC32
+   ========================================== */
+function calcCRC32(s){
+  let crc=0xFFFFFFFF;
+  const table=[];
+  for(let i=0;i<256;i++){let c=i;for(let j=0;j<8;j++)c=c&1?0xEDB88320^(c>>>1):c>>>1;table[i]=c;}
+  for(let i=0;i<s.length;i++)crc=table[(crc^s.charCodeAt(i))&0xFF]^(crc>>>8);
+  return (crc^0xFFFFFFFF)>>>0;
+}
+
+/* ==========================================
+   🛠 工具函数
+   ========================================== */
+function str2bytes(s){return[...new TextEncoder().encode(s)]}
+function bytes2str(bytes){return new TextDecoder().decode(new Uint8Array(bytes))}
+function bytesToHex(bytes){return bytes.map(b=>b.toString(16).padStart(2,'0')).join('')}
+function hexToBytes(h){const r=[];for(let i=0;i<h.length;i+=2)r.push(parseInt(h.slice(i,i+2),16));return r}
+
+// bigInt polyfill for Base58/62/85/ElGamal
+var bigInt=(function(){
+  function B(n,b){if(typeof n==='string'){this.digits=[];const base=b||10;for(let i=n.length-1;i>=0;i--){this.multiply(base);this.add(parseInt(n[i],36))}}else if(typeof n==='number'){this.digits=[n];this.normalize()}else if(n instanceof B){return n}this.normalize();return this}
+  B.prototype.normalize=function(){while(this.digits.length>1&&this.digits[this.digits.length-1]===0)this.digits.pop();return this}
+  B.prototype.add=function(n){if(typeof n==='number'){if(!this.digits.length)this.digits=[0];this.digits[0]+=n;let i=0;while(this.digits[i]>=1000000000){if(!this.digits[i+1])this.digits[i+1]=0;this.digits[i+1]+=Math.floor(this.digits[i]/1000000000);this.digits[i]%=1000000000;i++}return this.normalize()}return this}
+  B.prototype.multiply=function(n){if(typeof n==='number'){let carry=0;for(let i=0;i<this.digits.length||carry;i++){if(i>=this.digits.length)this.digits[i]=0;const prod=this.digits[i]*n+carry;this.digits[i]=prod%1000000000;carry=Math.floor(prod/1000000000)}return this.normalize()}return this}
+  B.prototype.divide=function(n){if(typeof n==='number'){let rem=0;for(let i=this.digits.length-1;i>=0;i--){const cur=this.digits[i]+rem*1000000000;this.digits[i]=Math.floor(cur/n);rem=cur%n}return this.normalize(),this}
+    return this}
+  B.prototype.mod=function(n){if(typeof n==='number'){let rem=0;for(let i=this.digits.length-1;i>=0;i--)rem=(this.digits[i]+rem*1000000000)%n;return rem}return bigInt(0)}
+  B.prototype.modPow=function(e,m){let r=bigInt(1);let b=this;let exp=e;while(exp.compare(0)>0){if(exp.isOdd())r=r.multiply(b).mod(m);b=b.multiply(b).mod(m);exp=exp.shiftRight(1)}return r}
+  B.prototype.modInv=function(m){const[g,x]=extendedGcd(this,m);return x.mod(m).add(m).mod(m)}
+  B.prototype.compare=function(n){const a=this.digits,b=n.digits;if(a.length!==b.length)return a.length-b.length;for(let i=a.length-1;i>=0;i--){if(a[i]!==b[i])return a[i]-b[i]}return 0}
+  B.prototype.isOdd=function(){return this.digits[0]%2===1}
+  B.prototype.shiftRight=function(n){for(let i=0;i<n;i++){this.digits.shift()}return this.normalize()}
+  B.prototype.toString=function(base){base=base||10;if(this.digits.length===0)return'0';const res=[];let tmp=new B(0);tmp.digits=[...this.digits];while(tmp.digits.length>1||tmp.digits[0]!==0){res.push((tmp.mod(base)).toString(36));tmp=tmp.divide(base)}return res.reverse().join('')||'0'}
+  B.prototype.minus=function(n){if(typeof n==='number'){this.digits[0]-=n;let i=0;while(this.digits[i]<0){this.digits[i]+=1000000000;this.digits[i+1]--;i++}return this.normalize()}return this}
+  B.prototype.equals=function(n){if(typeof n==='number')return this.digits.length===1&&this.digits[0]===n;return this.compare(n)===0}
+  function extendedGcd(a,b){if(b.equals(0))return[a,bigInt(1),bigInt(0)];const[g,x1,y1]=extendedGcd(b,a.mod(b));return[g,y1,x1.minus(a.divide(b).multiply(y1))]}
+  function randBetween(min,mx){const range=mx.minus(min);return bigInt(Math.floor(Math.random()*1000000000)).mod(range).add(min)}
+  B.randBetween=randBetween;function B_(n,b){return new B(n,b)}B_.prototype=B.prototype;return B_})();
+
+/* ==========================================
+   📋 状态显示与工具函数
+   ========================================== */
+function st(id,msg,type){const el=document.getElementById('st_'+id);if(!el)return;el.textContent=msg;el.className='status-msg'+(type?' '+type:'');if(!msg)el.style.display='none';else el.style.display='block'}
+function showStatus(id,msg,type){st(id,msg,type)}
+function clearFields(...ids){clr(...ids)}
+function clr(...ids){ids.forEach(id=>{const el=document.getElementById(id);if(el){if(el.tagName==='TEXTAREA'||el.tagName==='INPUT')el.value='';else if(el.classList.contains('hash-result'))el.textContent='等待计算...'}})}
+function copyText(id){const el=document.getElementById(id);if(!el)return;el.select();document.execCommand('copy')}
+function copyEl(id){const el=document.getElementById(id);if(!el)return;const range=document.createRange();range.selectNode(el);window.getSelection().removeAllRanges();window.getSelection().addRange(range);document.execCommand('copy');window.getSelection().removeAllRanges()}
+function swapInOut(id){const inp=document.getElementById('inp_'+id);const out=document.getElementById('out_'+id);if(inp&&out){const t=inp.value;inp.value=out.value;out.value=t}}
+
+/* ==========================================
+   📂 侧边栏构建
+   ========================================== */
+function buildSidebar(){
+  const nav=document.getElementById('sidebarNav');
+  let html='';
+  for(const cat of CATEGORIES){
+    const items=Object.values(TOOLS).filter(t=>t.cat===cat.id);
+    if(!items.length) continue;
+    html+='<div class="cat-group">';
+    html+=`<div class="cat-title" onclick="toggleCat('${cat.id}')"><span>${cat.icon} ${cat.name}</span><span class="arrow">▼</span></div>`;
+    html+=`<div class="cat-items" id="cat_${cat.id}">`;
+    for(const t of items){
+      html+=`<div class="nav-item" id="nav_${t.id}" onclick="switchTool('${t.id}')"><span class="icon">${t.icon}</span><span>${t.name}</span></div>`;
+    }
+    html+='</div></div>';
+  }
+  nav.innerHTML=html;
+  // Expand first category by default
+  const firstCat=document.querySelector('.cat-items');
+  if(firstCat) firstCat.classList.remove('collapsed');
+}
+
+function toggleCat(id){
+  const el=document.getElementById('cat_'+id);
+  const title=el.previousElementSibling;
+  if(el.classList.contains('collapsed')){
+    el.classList.remove('collapsed');
+    title.classList.remove('collapsed');
+  }else{
+    el.classList.add('collapsed');
+    title.classList.add('collapsed');
+  }
+}
+
+function filterTools(q){
+  q=q.toLowerCase();
+  document.querySelectorAll('.cat-group').forEach(group=>{
+    let showGroup=false;
+    group.querySelectorAll('.nav-item').forEach(item=>{
+      const name=item.textContent.toLowerCase();
+      if(!q||name.includes(q)){
+        item.style.display='flex';
+        showGroup=true;
+      }else{
+        item.style.display='none';
+      }
+    });
+    group.style.display=showGroup?'block':'none';
+  });
+}
+
+/* ==========================================
+   🔄 工具切换
+   ========================================== */
+let currentTool=null;
+function switchTool(id){
+  const tool=TOOLS[id];
+  if(!tool) return;
+  currentTool=id;
+  // Update nav
+  document.querySelectorAll('.nav-item').forEach(el=>el.classList.remove('active'));
+  const navEl=document.getElementById('nav_'+id);
+  if(navEl) navEl.classList.add('active');
+  // Update header
+  document.getElementById('toolTitle').textContent=tool.icon+' '+tool.name;
+  document.getElementById('toolDesc').textContent=tool.desc;
+  // Render content
+  document.getElementById('contentBody').innerHTML=tool.render();
+}
+
+/* ==========================================
+   🚀 初始化
+   ========================================== */
+buildSidebar();
+// Expand first category
+const firstCatTitle=document.querySelector('.cat-title');
+if(firstCatTitle) firstCatTitle.classList.remove('collapsed');
+const firstCatItems=document.querySelector('.cat-items');
+if(firstCatItems) firstCatItems.classList.remove('collapsed');
+</script>
+</body>
+</html>
