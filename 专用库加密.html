@@ -153,7 +153,7 @@ def('playfair',{name:'Playfair',cat:'symmetric',icon:'🔑',desc:'Playfair 双�
 /* ---------- 非对称加密 ---------- */
 def('rsa',{name:'RSA',cat:'asymmetric',icon:'🔐',desc:'RSA 非对称加密/解密/签名/验签',render:genRsaRender()});
 def('ecc',{name:'ECC',cat:'asymmetric',icon:'🔐',desc:'椭圆曲线加密 Ed25519 签名/验签',render:genEccRender()});
-def('dh',{name:'Diffie-Hellman',cat:'asymmetric',icon:'🔐',desc:'Diffie-Hellman 密钥交换',render:genDhRender()});
+def('dh',{name:'ECDH',cat:'asymmetric',icon:'🔐',desc:'椭圆曲线 Diffie-Hellman 密钥交换（P-256）',render:genDhRender()});
 def('elgamal',{name:'ElGamal',cat:'asymmetric',icon:'🔐',desc:'ElGamal 非对称加密（基于离散对数）',render:genElGamalRender()});
 
 /* ---------- 哈希 ---------- */
@@ -189,11 +189,12 @@ function genEncDec(id, fns) {
       <div class="info-bar">${TOOLS[id].desc}</div>
       <div class="field"><label>输入</label><textarea id="inp_${id}" placeholder="在此输入文本..." rows="4"></textarea><button class="copy-btn" onclick="copyText('inp_${id}')">📋</button></div>
       <div class="actions">
-        <button class="btn primary" onclick="doEncDec('${id}','key')">编码 ▶</button>
-        <button class="btn warning" onclick="doEncDec('${id}','unkey')">解码 ◀</button>
+        <button class="btn primary" onclick="doEnc('${id}','${id}')">编码 ▶</button>
+        <button class="btn warning" onclick="doDec('${id}','${id}')">解码 ◀</button>
         <button class="btn small" onclick="swapInOut('${id}')">⇅ 交换</button>
         <button class="btn small" onclick="clearFields('inp_${id}','out_${id}')">清空</button>
       </div>
+      <div id="st_${id}" class="status-msg"></div>
       <div class="field"><label>输出</label><textarea id="out_${id}" class="output" readonly rows="4" placeholder="结果将显示在这里"></textarea><button class="copy-btn" onclick="copyText('out_${id}')">📋</button></div>
     </div>`;
 }
@@ -227,7 +228,7 @@ function genCipherRender(id, opts) {
         <button class="btn small" onclick="swapInOut('${id}')">⇅ 交换</button>
         <button class="btn small" onclick="clearFields('inp_${id}','out_${id}')">清空</button>
       </div>
-      <div id="status_${id}" class="status-msg"></div>
+      <div id="st_${id}" class="status-msg"></div>
       <div class="field"><label>输出</label><textarea id="out_${id}" class="output" readonly rows="4" placeholder="结果将显示在这里"></textarea><button class="copy-btn" onclick="copyText('out_${id}')">📋</button></div>
     </div>`;
 }
@@ -307,7 +308,7 @@ function genXorRender() {
         <button class="btn small" onclick="swapInOut('xorcipher')">⇅ 交换</button>
         <button class="btn small" onclick="clearFields('inp_xorcipher','out_xorcipher')">清空</button>
       </div>
-      <div id="status_xorcipher" class="status-msg"></div>
+      <div id="st_xorcipher" class="status-msg"></div>
       <div class="field"><label>输出</label><textarea id="out_xorcipher" class="output" readonly rows="4" placeholder="结果将显示在这里"></textarea><button class="copy-btn" onclick="copyText('out_xorcipher')">📋</button></div>
     </div>`;
 }
@@ -638,35 +639,60 @@ function genEccRender(){
     </div>`;
 }
 var eccKeys=null;
-function genEccKey(){
+function ab2b64(ab){return btoa(String.fromCharCode(...new Uint8Array(ab)))}
+function b642ab(s){return Uint8Array.from(atob(s),c=>c.charCodeAt(0))}
+async function genEccKey(){
+  try{
+    if(crypto.subtle&&crypto.subtle.generateKey){
+      const keyPair=await crypto.subtle.generateKey({name:'Ed25519'},true,['sign','verify']);
+      const pubRaw=await crypto.subtle.exportKey('raw',keyPair.publicKey);
+      const privRaw=await crypto.subtle.exportKey('pkcs8',keyPair.privateKey);
+      const pubB64=ab2b64(pubRaw);const privB64=ab2b64(privRaw);
+      eccKeys={keyPair,pubB64,privB64,mode:'native'};
+      document.getElementById('ecc_pub').value=pubB64;
+      document.getElementById('ecc_priv').value=privB64;
+      st('ecc','Ed25519 密钥对生成成功','success');return;
+    }
+  }catch(e){/* fallback to forge */}
   try{
     const kp=forge.ed25519.generateKeyPair();
     eccKeys=kp;
     document.getElementById('ecc_pub').value=forge.util.encode64(kp.publicKey);
     document.getElementById('ecc_priv').value=forge.util.encode64(kp.privateKey);
-    st('ecc','Ed25519 密钥对生成成功','success');
-  }catch(e){st('ecc','生成失败: '+e.message,'error')}
+    st('ecc','Ed25519 密钥对生成成功 (forge)','success');
+  }catch(e2){st('ecc','生成失败: '+e2.message,'error')}
 }
-function doEcc(dir){
+async function doEcc(dir){
   const inp=document.getElementById('inp_ecc').value;
   if(!inp){st('ecc','请输入内容','error');return}
   try{
     if(dir==='sign'){
       const privB64=document.getElementById('ecc_priv').value;
       if(!privB64){st('ecc','请先生成或输入私钥','error');return}
-      const priv=forge.util.decode64(privB64);
-      const sig=forge.ed25519.sign({message:inp,privateKey:priv,encoding:'utf8'});
-      document.getElementById('out_ecc').value=forge.util.encode64(sig);
+      if(eccKeys&&eccKeys.mode==='native'&&eccKeys.keyPair){
+        const sig=await crypto.subtle.sign({name:'Ed25519'},eccKeys.keyPair.privateKey,new TextEncoder().encode(inp));
+        document.getElementById('out_ecc').value=ab2b64(sig);
+      }else{
+        const priv=forge.util.decode64(privB64);
+        const sig=forge.ed25519.sign({message:inp,privateKey:priv,encoding:'utf8'});
+        document.getElementById('out_ecc').value=forge.util.encode64(sig);
+      }
       st('ecc','签名成功','success');
     }else if(dir==='verify'){
       const pubB64=document.getElementById('ecc_pub').value;
       if(!pubB64){st('ecc','请先生成或输入公钥','error');return}
       const sigB64=document.getElementById('out_ecc').value;
       if(!sigB64){st('ecc','请先签名或输入签名','error');return}
-      const pub=forge.util.decode64(pubB64);
-      const sig=forge.util.decode64(sigB64);
-      const ok=forge.ed25519.verify({message:inp,signature:sig,publicKey:pub,encoding:'utf8'});
-      st('ecc',ok?'✅ 签名验证通过':'❌ 签名验证失败',ok?'success':'error');
+      if(eccKeys&&eccKeys.mode==='native'&&eccKeys.keyPair){
+        const pub=await crypto.subtle.importKey('raw',b642ab(pubB64),{name:'Ed25519'},true,['verify']);
+        const ok=await crypto.subtle.verify({name:'Ed25519'},pub,b642ab(sigB64),new TextEncoder().encode(inp));
+        st('ecc',ok?'✅ 签名验证通过':'❌ 签名验证失败',ok?'success':'error');
+      }else{
+        const pub=forge.util.decode64(pubB64);
+        const sig=forge.util.decode64(sigB64);
+        const ok=forge.ed25519.verify({message:inp,signature:sig,publicKey:pub,encoding:'utf8'});
+        st('ecc',ok?'✅ 签名验证通过':'❌ 签名验证失败',ok?'success':'error');
+      }
     }
   }catch(e){st('ecc','错误: '+e.message,'error')}
 }
@@ -674,7 +700,7 @@ function doEcc(dir){
 function genDhRender(){
   return ()=>`
     <div class="tool-section">
-      <div class="info-bar">Diffie-Hellman 密钥交换：双方各自生成密钥对，交换公钥后计算出共享密钥。</div>
+      <div class="info-bar">ECDH (P-256) 密钥交换：双方各自生成密钥对，交换公钥后计算出共享密钥（SHA-256）。</div>
       <div class="keypair-area">
         <h4>👤 甲方 (Alice)</h4>
         <div class="actions"><button class="btn primary" onclick="genDh('alice')">🎲 生成密钥对</button></div>
@@ -695,37 +721,36 @@ function genDhRender(){
     </div>`;
 }
 var dhAlice=null,dhBob=null;
-function genDh(who){
+async function genDh(who){
   try{
-    const bits=1024;
-    forge.prime.generateProbablePrime(bits,function(err,num){
-      if(err){st('dh','生成失败','error');return}
-      const dh=forge.dh.createDiffieHellman(num);
-      dh.generateKeys();
-      if(who==='alice'){
-        dhAlice=dh;
-        document.getElementById('dh_pubA').value=forge.util.encode64(dh.getPublicKey());
-        document.getElementById('dh_privA').value=forge.util.encode64(dh.getPrivateKey());
-      }else{
-        dhBob=dh;
-        document.getElementById('dh_pubB').value=forge.util.encode64(dh.getPublicKey());
-        document.getElementById('dh_privB').value=forge.util.encode64(dh.getPrivateKey());
-      }
-      st('dh',who==='alice'?'甲方密钥对生成成功':'乙方密钥对生成成功','success');
-    });
+    const keyPair=await crypto.subtle.generateKey({name:'ECDH',namedCurve:'P-256'},true,['deriveKey','deriveBits']);
+    const pubRaw=await crypto.subtle.exportKey('raw',keyPair.publicKey);
+    const privRaw=await crypto.subtle.exportKey('pkcs8',keyPair.privateKey);
+    const pubB64=ab2b64(pubRaw);const privB64=ab2b64(privRaw);
+    const keyData={keyPair,pubB64,privB64};
+    if(who==='alice'){
+      dhAlice=keyData;
+      document.getElementById('dh_pubA').value=pubB64;
+      document.getElementById('dh_privA').value=privB64;
+    }else{
+      dhBob=keyData;
+      document.getElementById('dh_pubB').value=pubB64;
+      document.getElementById('dh_privB').value=privB64;
+    }
+    st('dh',who==='alice'?'甲方密钥对生成成功':'乙方密钥对生成成功','success');
   }catch(e){st('dh','错误: '+e.message,'error')}
 }
-function doDh(){
+async function doDh(){
   if(!dhAlice||!dhBob){st('dh','请先生成双方的密钥对','error');return}
   try{
-    const pubB=forge.util.decode64(document.getElementById('dh_pubB').value);
-    const pubA=forge.util.decode64(document.getElementById('dh_pubA').value);
-    dhAlice.setPublicKey(pubB);
-    dhBob.setPublicKey(pubA);
-    const secA=dhAlice.computeSecret();
-    const secB=dhBob.computeSecret();
-    if(forge.util.createBuffer(secA).toHex()===forge.util.createBuffer(secB).toHex()){
-      const hash=CryptoJS.SHA256(forge.util.createBuffer(secA).toHex()).toString();
+    const bobPubKey=await crypto.subtle.importKey('raw',b642ab(dhBob.pubB64),{name:'ECDH',namedCurve:'P-256'},true,[]);
+    const alicePubKey=await crypto.subtle.importKey('raw',b642ab(dhAlice.pubB64),{name:'ECDH',namedCurve:'P-256'},true,[]);
+    const aliceBits=await crypto.subtle.deriveBits({name:'ECDH',public:bobPubKey},dhAlice.keyPair.privateKey,256);
+    const bobBits=await crypto.subtle.deriveBits({name:'ECDH',public:alicePubKey},dhBob.keyPair.privateKey,256);
+    const aHex=Array.from(new Uint8Array(aliceBits)).map(b=>b.toString(16).padStart(2,'0')).join('');
+    const bHex=Array.from(new Uint8Array(bobBits)).map(b=>b.toString(16).padStart(2,'0')).join('');
+    if(aHex===bHex){
+      const hash=CryptoJS.SHA256(aHex).toString();
       document.getElementById('out_dh').value=hash;
       st('dh','✅ 共享密钥一致！','success');
     }else{
@@ -760,16 +785,44 @@ function genElGamalRender(){
     </div>`;
 }
 var elgKeys=null;
+// Native BigInt helpers for ElGamal
+function bigIntModPow(base, exp, mod) {
+  let r = 1n, b = base % mod, e = exp;
+  while (e > 0n) { if (e & 1n) r = (r * b) % mod; b = (b * b) % mod; e >>= 1n; }
+  return r;
+}
+function bigIntModInv(a, m) {
+  let [g, x] = (function extGcd(a, b) {
+    if (b === 0n) return [a, 1n, 0n];
+    const [g, x1, y1] = extGcd(b, a % b);
+    return [g, y1, x1 - (a / b) * y1];
+  })(a % m, m);
+  return ((x % m) + m) % m;
+}
+function randBigInt(max) {
+  const bits = max.toString(2).length;
+  const bytes = Math.ceil(bits / 8);
+  const arr = new Uint8Array(bytes);
+  let result;
+  do {
+    crypto.getRandomValues(arr);
+    result = 0n;
+    for (const b of arr) result = (result << 8n) + BigInt(b);
+    result >>= BigInt(bytes * 8 - bits);
+  } while (result >= max);
+  return result;
+}
+const ELGAMAL_P = 0xFFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3DC2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F83655D23DCA3AD961C62F356208552BB9ED529077096966D670C354E4ABC9804F1746C08CA18217C32905E462En;
+var elgKeys=null;
 function genElGamalKey(){
   try{
-    // Use small prime for browser performance
-    const p=bigInt('FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3DC2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F83655D23DCA3AD961C62F356208552BB9ED529077096966D670C354E4ABC9804F1746C08CA18217C32905E462E',16);
-    const g=bigInt(2);
-    const x=bigInt.randBetween(1,p.minus(1));
-    const y=g.modPow(x,p);
-    elgKeys={p,g,x,y};
-    document.getElementById('elg_pub').value='p='+p.toString(16).slice(0,32)+'...\ng='+g.toString()+'\ny='+y.toString(16).slice(0,32)+'...';
-    document.getElementById('elg_priv').value='x='+x.toString(16).slice(0,32)+'...';
+    const p = ELGAMAL_P;
+    const g = 2n;
+    const x = randBigInt(p - 1n) + 1n;
+    const y = bigIntModPow(g, x, p);
+    elgKeys = {p, g, x, y};
+    document.getElementById('elg_pub').value = 'p=' + p.toString(16).slice(0,32) + '...\ng=' + g.toString() + '\ny=' + y.toString(16).slice(0,32) + '...';
+    document.getElementById('elg_priv').value = 'x=' + x.toString(16).slice(0,32) + '...';
     st('elg','ElGamal 密钥对生成成功','success');
   }catch(e){st('elg','生成失败: '+e.message,'error')}
 }
@@ -780,22 +833,22 @@ function doElGamal(dir){
   try{
     if(dir==='encrypt'){
       const {p,g,y}=elgKeys;
-      const k=bigInt.randBetween(1,p.minus(1));
-      const c1=g.modPow(k,p);
-      const m=str2bytes(inp).reduce((a,b)=>a.multiply(256).add(b),bigInt(0));
-      const c2=m.multiply(y.modPow(k,p)).mod(p);
-      document.getElementById('out_elg').value=c1.toString(16)+':'+c2.toString(16);
+      const k = randBigInt(p - 1n) + 1n;
+      const c1 = bigIntModPow(g, k, p);
+      const m = str2bytes(inp).reduce((a,b) => (a << 8n) + BigInt(b), 0n);
+      const c2 = (m * bigIntModPow(y, k, p)) % p;
+      document.getElementById('out_elg').value = c1.toString(16) + ':' + c2.toString(16);
     }else{
       const {p,x}=elgKeys;
       const parts=inp.split(':');
-      const c1=bigInt(parts[0],16);
-      const c2=bigInt(parts[1],16);
-      const s=c1.modPow(x,p);
-      const m=c2.multiply(s.modInv(p)).mod(p);
-      const bytes=[];
-      let tmp=m;
-      while(tmp>0){bytes.unshift(parseInt(tmp.mod(256).toString()));tmp=tmp.divide(256);}
-      document.getElementById('out_elg').value=bytes2str(bytes);
+      const c1 = BigInt('0x' + parts[0]);
+      const c2 = BigInt('0x' + parts[1]);
+      const s = bigIntModPow(c1, x, p);
+      const m = (c2 * bigIntModInv(s, p)) % p;
+      const bytes = [];
+      let tmp = m;
+      while (tmp > 0n) { bytes.unshift(Number(tmp & 0xFFn)); tmp >>= 8n; }
+      document.getElementById('out_elg').value = bytes2str(bytes);
     }
     st('elg','操作成功','success');
   }catch(e){st('elg','错误: '+e.message,'error')}
@@ -1005,14 +1058,14 @@ function base58Encode(s){
   const bytes=str2bytes(s);
   let n=bigInt(0);for(const b of bytes) n=n.multiply(256).add(b);
   if(n.equals(0))return '';
-  let res='';const base=bigInt(58);
-  while(n>0){res=BASE58[parseInt(n.mod(base).toString())]+res;n=n.divide(base);}
+  let res='';
+  while(!n.equals(0)){res=BASE58[n.mod(58)]+res;n=n.divide(58);}
   return res;
 }
 function base58Decode(s){
-  let n=bigInt(0);const base=bigInt(58);
-  for(const c of s){const idx=BASE58.indexOf(c);if(idx>=0)n=n.multiply(base).add(idx);}
-  const bytes=[];while(n>0){bytes.unshift(parseInt(n.mod(256).toString()));n=n.divide(256);}
+  let n=bigInt(0);
+  for(const c of s){const idx=BASE58.indexOf(c);if(idx>=0)n=n.multiply(58).add(idx);}
+  const bytes=[];while(!n.equals(0)){bytes.unshift(n.mod(256));n=n.divide(256);}
   return bytes2str(bytes);
 }
 
@@ -1024,14 +1077,14 @@ function base62Encode(s){
   const bytes=str2bytes(s);
   let n=bigInt(0);for(const b of bytes)n=n.multiply(256).add(b);
   if(n.equals(0))return '0';
-  let res='';const base=bigInt(62);
-  while(n>0){res=BASE62[parseInt(n.mod(base).toString())]+res;n=n.divide(base);}
+  let res='';
+  while(!n.equals(0)){res=BASE62[n.mod(62)]+res;n=n.divide(62);}
   return res;
 }
 function base62Decode(s){
-  let n=bigInt(0);const base=bigInt(62);
-  for(const c of s){const idx=BASE62.indexOf(c);if(idx>=0)n=n.multiply(base).add(idx);}
-  const bytes=[];while(n>0){bytes.unshift(parseInt(n.mod(256).toString()));n=n.divide(256);}
+  let n=bigInt(0);
+  for(const c of s){const idx=BASE62.indexOf(c);if(idx>=0)n=n.multiply(62).add(idx);}
+  const bytes=[];while(!n.equals(0)){bytes.unshift(n.mod(256));n=n.divide(256);}
   return bytes2str(bytes);
 }
 
@@ -1040,26 +1093,26 @@ function base62Decode(s){
    ========================================== */
 function base85Encode(s){
   const bytes=str2bytes(s);
-  let res='';const base=bigInt(85);
+  let res='';
   for(let i=0;i<bytes.length;i+=4){
     const chunk=bytes.slice(i,i+4);
     let n=bigInt(0);for(const b of chunk)n=n.multiply(256).add(b);
     const pad=4-chunk.length;
     for(let j=0;j<pad;j++)n=n.multiply(256);
-    let group='';for(let j=0;j<5-pad;j++){group=String.fromCharCode(33+parseInt(n.mod(base).toString()))+group;n=n.divide(base);}
-    res+=group.repeat(5-pad).slice(0,5-pad);
+    let group='';for(let j=0;j<5-pad;j++){group=String.fromCharCode(33+n.mod(85))+group;n=n.divide(85);}
+    res+=group;
   }
   return res;
 }
 function base85Decode(s){
-  let res='';const base=bigInt(85);
+  let res='';
   for(let i=0;i<s.length;i+=5){
     const chunk=s.slice(i,i+5);
     let n=bigInt(0);
-    for(const c of chunk)n=n.multiply(base).add(c.charCodeAt(0)-33);
+    for(const c of chunk)n=n.multiply(85).add(c.charCodeAt(0)-33);
     const pad=5-chunk.length;
     for(let j=0;j<pad;j++)n=n.multiply(85);
-    const bytes=[];for(let j=0;j<4-pad;j++){bytes.unshift(parseInt(n.mod(256).toString()));n=n.divide(256);}
+    const bytes=[];for(let j=0;j<4-pad;j++){bytes.unshift(n.mod(256));n=n.divide(256);}
     res+=bytes2str(bytes);
   }
   return res;
@@ -1114,11 +1167,11 @@ var bigInt=(function(){
   B.prototype.mod=function(n){if(typeof n==='number'){let rem=0;for(let i=this.digits.length-1;i>=0;i--)rem=(this.digits[i]+rem*1000000000)%n;return rem}return bigInt(0)}
   B.prototype.modPow=function(e,m){let r=bigInt(1);let b=this;let exp=e;while(exp.compare(0)>0){if(exp.isOdd())r=r.multiply(b).mod(m);b=b.multiply(b).mod(m);exp=exp.shiftRight(1)}return r}
   B.prototype.modInv=function(m){const[g,x]=extendedGcd(this,m);return x.mod(m).add(m).mod(m)}
-  B.prototype.compare=function(n){const a=this.digits,b=n.digits;if(a.length!==b.length)return a.length-b.length;for(let i=a.length-1;i>=0;i--){if(a[i]!==b[i])return a[i]-b[i]}return 0}
+  B.prototype.compare=function(n){if(typeof n==='number')return this.digits.length!==1?this.digits.length:this.digits[0]-n;const a=this.digits,b=n.digits;if(a.length!==b.length)return a.length-b.length;for(let i=a.length-1;i>=0;i--){if(a[i]!==b[i])return a[i]-b[i]}return 0}
   B.prototype.isOdd=function(){return this.digits[0]%2===1}
   B.prototype.shiftRight=function(n){for(let i=0;i<n;i++){this.digits.shift()}return this.normalize()}
   B.prototype.toString=function(base){base=base||10;if(this.digits.length===0)return'0';const res=[];let tmp=new B(0);tmp.digits=[...this.digits];while(tmp.digits.length>1||tmp.digits[0]!==0){res.push((tmp.mod(base)).toString(36));tmp=tmp.divide(base)}return res.reverse().join('')||'0'}
-  B.prototype.minus=function(n){if(typeof n==='number'){this.digits[0]-=n;let i=0;while(this.digits[i]<0){this.digits[i]+=1000000000;this.digits[i+1]--;i++}return this.normalize()}return this}
+  B.prototype.minus=function(n){if(typeof n==='number'){this.digits[0]-=n;let i=0;while(this.digits[i]<0){this.digits[i]+=1000000000;this.digits[i+1]--;i++}return this.normalize()}if(n instanceof B){const result=bigInt(0);result.digits=[...this.digits];let borrow=0;for(let i=0;i<result.digits.length||borrow;i++){const sub=(n.digits[i]||0)+borrow;if(result.digits[i]<sub){result.digits[i]+=1000000000-sub;borrow=1}else{result.digits[i]-=sub;borrow=0}}return result.normalize()}return this}
   B.prototype.equals=function(n){if(typeof n==='number')return this.digits.length===1&&this.digits[0]===n;return this.compare(n)===0}
   function extendedGcd(a,b){if(b.equals(0))return[a,bigInt(1),bigInt(0)];const[g,x1,y1]=extendedGcd(b,a.mod(b));return[g,y1,x1.minus(a.divide(b).multiply(y1))]}
   function randBetween(min,mx){const range=mx.minus(min);return bigInt(Math.floor(Math.random()*1000000000)).mod(range).add(min)}
